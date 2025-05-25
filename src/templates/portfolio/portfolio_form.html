@@ -60,22 +60,12 @@
                                            value="{% if is_update %}{{ portfolio.name }}{% else %}{% endif %}" 
                                            required>
                                     <label for="id_name">Tên danh mục <span class="required-star">*</span></label>
-                                    {% if form.name.errors %}
-                                    <div class="invalid-feedback">
-                                        {% for error in form.name.errors %}{{ error }}{% endfor %}
-                                    </div>
-                                    {% endif %}
                                 </div>
                                 
                                 <div class="form-floating mb-4">
                                     <textarea name="description" class="form-control {% if form.description.errors %}is-invalid{% endif %}" 
                                               id="id_description" placeholder="Mô tả" style="height: 120px;">{% if form_data.description %}{{ form_data.description }}{% elif form.description.value %}{{ form.description.value }}{% endif %}</textarea>
                                     <label for="id_description">Mô tả chi tiết</label>
-                                    {% if form.description.errors %}
-                                    <div class="invalid-feedback">
-                                        {% for error in form.description.errors %}{{ error }}{% endfor %}
-                                    </div>
-                                    {% endif %}
                                 </div>
                             </div>
                             
@@ -94,11 +84,6 @@
                                                    id="id_investment_goal" placeholder="Mục tiêu đầu tư" 
                                                    value="{% if form_data.investment_goal %}{{ form_data.investment_goal }}{% elif form.investment_goal.value %}{{ form.investment_goal.value }}{% endif %}">
                                             <label for="id_investment_goal">Mục tiêu đầu tư</label>
-                                            {% if form.investment_goal.errors %}
-                                            <div class="invalid-feedback">
-                                                {% for error in form.investment_goal.errors %}{{ error }}{% endfor %}
-                                            </div>
-                                            {% endif %}
                                         </div>
                                     </div>
                                     <div class="col-md-6 mb-4">
@@ -107,11 +92,6 @@
                                                    id="id_target_value" placeholder="Giá trị mục tiêu" 
                                                    value="{% if form_data.target_value %}{{ form_data.target_value }}{% elif form.target_value.value %}{{ form.target_value.value }}{% endif %}">
                                             <label for="id_target_value">Giá trị mục tiêu (VNĐ)</label>
-                                            {% if form.target_value.errors %}
-                                            <div class="invalid-feedback">
-                                                {% for error in form.target_value.errors %}{{ error }}{% endfor %}
-                                            </div>
-                                            {% endif %}
                                         </div>
                                     </div>
                                 </div>

@@ -796,13 +796,6 @@
                                     VNĐ
                                 </span>
                             </div>
-                            <!-- {% if form.amount.errors %}
-                                <div class="text-danger small mt-1">
-                                    {% for error in form.amount.errors %}
-                                        {{ error }}
-                                    {% endfor %}
-                                </div>
-                            {% endif %} -->
                             <div class="form-text mt-2 d-flex align-items-center">
                                 <i class="fas fa-info-circle text-primary me-2"></i>
                                 <span>Số tiền tối thiểu <span class="fw-bold">100,000 VNĐ</span></span>
@@ -816,9 +809,7 @@
                                     <div>
                                         <div class="small text-muted">Số tiền bạn sẽ nhận:</div>
                                         <div class="fw-bold text-success">
-                                            <span class="amount-display" style="font-size: 1.1rem;">0   
-                                                <!-- {{ form.amount.value|default:'100000'|floatformat:0 }} -->
-                                            </span>
+                                            <span class="amount-display" style="font-size: 1.1rem;">0</span>
                                         </div>
                                     </div>
                                 </div>

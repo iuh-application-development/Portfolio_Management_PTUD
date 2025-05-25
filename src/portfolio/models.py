@@ -377,4 +377,4 @@ from django.dispatch import receiver
 @receiver(post_save, sender=User)
 def create_user_wallet(sender, instance, created, **kwargs):
     if created and not hasattr(instance, 'wallet'):
-        Wallet.objects.create(user=instance, balance=500000000)
+        Wallet.objects.create(user=instance, balance=0)

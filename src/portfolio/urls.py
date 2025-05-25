@@ -15,15 +15,10 @@ urlpatterns = [
     path('portfolios/<int:pk>/delete/', views.portfolio_delete, name='portfolio_delete'),
     path('portfolios/<int:portfolio_id>/buy/', views.buy_stock, name='buy_stock'),
     path('portfolios/<int:portfolio_id>/sell/', views.sell_stock, name='sell_stock'),
-    # path('portfolios/<int:portfolio_id>/transactions/', views.portfolio_transactions, name='portfolio_transactions'),
+    path('portfolios/<int:portfolio_id>/transactions/', views.portfolio_transactions, name='portfolio_transactions'),
     
     path('assets/', views.asset_list, name='asset_list'),
-    # path('assets/create/', views.asset_create, name='asset_create'),
-    # path('assets/<int:pk>/', views.asset_detail, name='asset_detail'),
-    # path('assets/<int:pk>/update/', views.asset_update, name='asset_update'),
-    
     path('transactions/', views.transaction_list, name='transaction_list'),
-    # path('transactions/create/', views.transaction_create, name='transaction_create'),
     
     # Auth0 authentication
     path('register/', views.register, name='register'),
@@ -48,19 +43,10 @@ urlpatterns = [
     path('wallet/bank-accounts/<int:pk>/set-default/', views.set_default_bank_account, name='bank_account_set_default'),
     
     # API URLs
-    # path('api/historical-data/<str:symbol>/', views.get_historical_data_api, name='historical_data_api'),
     path('api/ai-chat/', views.ai_chat_api, name='ai_chat_api'),
-    # path('api/stock-symbols/', views.get_stock_symbols, name='get_stock_symbols'),
-    path('api/stock-symbols-info/', views.get_stock_symbols_info, name='get_stock_symbols_info'),
-    path('api/stock-price/<str:symbol>/', views.get_stock_price, name='get_stock_price'),
-    path('api/stock-historical-data/<str:symbol>/', views.get_stock_historical_data, name='get_stock_historical_data'),
-    path('api/create-asset/', views.create_asset_from_symbol, name='create_asset_from_symbol'),
-    path('api/get-price-board/', views.get_price_board_api, name='get_price_board_api'),
     path('api/get-current-price-symbol/', views.get_current_price_symbol_api, name='get_current_price_symbol_api'),
+    path('api/get-price-board/', views.get_price_board_api, name='get_price_board_api'),
     path('api/historical-data/<str:symbol>/', views.get_stock_historical_data, name='get_stock_historical_data'),
     
-    # Debug URLs
-    # path('debug/assets/', views.debug_assets, name='debug_assets'),
-    path('debug/assets/sync/', views.sync_assets, name='sync_assets'),
-    path('debug/assets/update-prices/', views.update_stock_prices, name='update_stock_prices'),
+    # path('debug/assets/sync/', views.sync_assets, name='sync_assets'),
 ]
