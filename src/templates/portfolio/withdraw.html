@@ -1,7 +1,48 @@
 {% extends 'portfolio/base.html' %}
 {% load static %}
+{% load currency_filters %}
 
 {% block title %}Rút tiền | {{ block.super }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* CSS cho card thêm tài khoản mới */
+    #newBankAccountCard {
+        transition: all 0.3s ease;
+    }
+    
+    #newBankAccountCard:hover {
+        background-color: rgba(126, 87, 194, 0.1);
+        transform: translateY(-3px);
+        box-shadow: 0 5px 15px rgba(126, 87, 194, 0.2) !important;
+    }
+    .breadcrumb {
+        background: rgb(22 10 86 / 35%);
+        display: inline-flex;
+        padding: 0.5rem 1rem;
+        border-radius: 50px;
+        backdrop-filter: blur(5px);
+        margin-bottom: 1.5rem;
+    }
+
+    .breadcrumb-item,
+    .breadcrumb-item a {
+        color: rgba(0, 0, 24, 0.85);
+        font-size: 0.85rem;
+        font-weight: 500;
+        text-decoration: none;
+    }
+
+    .breadcrumb-item.active {
+        color: rgb(255, 255, 255);
+    }
+
+    .breadcrumb-item + .breadcrumb-item::before {
+        color: rgba(255, 255, 255, 0.5);    
+    }
+</style>
+{% endblock %}
+
 
 {% block extra_js %}
 <script src="{% static 'portfolio/js/wallet.js' %}"></script>
@@ -17,21 +58,6 @@
         </ol>
     </nav>
 
-    {% if messages %}
-        {% for message in messages %}
-            <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} rounded-4 mb-4">
-                <div class="d-flex">
-                    <div class="me-3">
-                        <i class="fas fa-{% if message.tags == 'error' %}exclamation-circle{% elif message.tags == 'success' %}check-circle{% else %}info-circle{% endif %} fa-2x"></i>
-                    </div>
-                    <div>
-                        <h6 class="alert-heading">Thông báo</h6>
-                        <p class="mb-0">{{ message|safe }}</p>
-                    </div>
-                </div>
-            </div>
-        {% endfor %}
-    {% endif %}
 
     <div class="row">
         <div class="col-lg-8">
@@ -47,30 +73,7 @@
                 <div class="card-body p-4">
                     <form method="post" id="withdrawForm" action="{% url 'withdraw_money' %}">
                         {% csrf_token %}
-                        
-                        {% if form.errors %}
-                        <div class="alert alert-danger rounded-4 mb-4">
-                            <div class="d-flex">
-                                <div class="me-3">
-                                    <i class="fas fa-exclamation-circle fa-2x"></i>
-                                </div>
-                                <div>
-                                    <h6 class="alert-heading">Lỗi xử lý form</h6>
-                                    <ul class="mb-0">
-                                        {% for field in form %}
-                                            {% for error in field.errors %}
-                                                <li>{{ field.label }}: {{ error }}</li>
-                                            {% endfor %}
-                                        {% endfor %}
-                                        {% for error in form.non_field_errors %}
-                                            <li>{{ error }}</li>
-                                        {% endfor %}
-                                    </ul>
-                                </div>
-                            </div>
-                        </div>
-                        {% endif %}
-                        
+
                         <div class="alert alert-primary rounded-4 mb-4">
                             <div class="d-flex">
                                 <div class="me-3">
@@ -78,7 +81,7 @@
                                 </div>
                                 <div>
                                     <h6 class="alert-heading">Thông tin số dư</h6>
-                                    <p class="mb-0">Số dư khả dụng của bạn: <span class="fw-bold">{{ wallet.balance|default:"0"|floatformat:0 }} VNĐ</span></p>
+                                    <p class="mb-0">Số dư khả dụng của bạn: <span class="fw-bold">{{ user_balance|default:"0"|dinh_dang_tien}} VNĐ</span></p>
                                 </div>
                             </div>
                         </div>
@@ -86,7 +89,7 @@
                         <div class="mb-4">
                             <label for="amount" class="form-label">Số tiền muốn rút <span class="text-danger">*</span></label>
                             <div class="input-group">
-                                <input type="number" name="amount" class="form-control form-control-lg" id="amount" min="100000" max="{{ wallet.balance|default:0 }}" step="50000" value="{{ form.amount.value|default:'' }}" required>
+                                <input type="number" name="amount" class="form-control form-control-lg" id="amount" min="100000" max="{{ wallet.balance|default:0 }}" step="50000" value="" required>
                                 <span class="input-group-text">VNĐ</span>
                             </div>
                             <div class="form-text">Số tiền tối thiểu: 100,000 VNĐ</div>
@@ -94,13 +97,13 @@
                         
                         <h5 class="mb-3">Chọn tài khoản nhận tiền</h5>
                         
-                        {% if bank_accounts %}
+                        {% if user_bank_accounts %}
                         <div class="mb-4">
                             <div class="row g-3">
-                                {% for account in form.fields.bank_account.queryset %}
+                                {% for account in user_bank_accounts %}
                                 <div class="col-md-6">
                                     <div class="form-check bank-account-card">
-                                        <input class="form-check-input" type="radio" name="bank_account" id="bank{{ account.id }}" value="{{ account.id }}" {% if form.bank_account.value|stringformat:"s" == account.id|stringformat:"s" %}checked{% elif account.is_default and not form.bank_account.value %}checked{% endif %}>
+                                        <input class="form-check-input" type="radio" name="bank_account" id="bank{{ account.id }}" value="{{ account.id }}" {% if account.is_default %}checked{% endif %}>
                                         <label class="form-check-label w-100" for="bank{{ account.id }}">
                                             <div class="card border shadow-sm rounded-4 p-3">
                                                 <div class="d-flex align-items-center">
@@ -111,14 +114,11 @@
                                                     </div>
                                                     <div>
                                                         <h6 class="mb-1">
-                                                            {% if account.bank_name == 'other' %}
-                                                                {{ account.other_bank_name }}
-                                                            {% else %}
-                                                                {{ account.get_bank_name_display }}
-                                                            {% endif %}
+                                                            {{ account.bank_name }}
                                                         </h6>
                                                         <div class="text-monospace small">{{ account.account_number }}</div>
                                                         <div class="small text-muted">{{ account.account_name }}</div>
+                                                        {% if account.is_default %}<span class="badge bg-primary">Mặc định</span>{% endif %}
                                                     </div>
                                                 </div>
                                             </div>
@@ -129,63 +129,22 @@
                                 
                                 <div class="col-md-6">
                                     <div class="form-check bank-account-card">
-                                        <input class="form-check-input" type="radio" name="bank_account" id="newBankAccount" value="new" {% if form.bank_account.value == 'new' %}checked{% endif %}>
-                                        <label class="form-check-label w-100" for="newBankAccount">
-                                            <div class="card border border-dashed shadow-sm rounded-4 p-3 text-center">
-                                                <div class="py-2">
-                                                    <i class="fas fa-plus-circle fa-2x text-primary mb-2"></i>
-                                                    <h6 class="mb-0">Thêm tài khoản mới</h6>
-                                                </div>
+                                        <div class="card border border-dashed shadow-sm rounded-4 p-3 text-center" 
+                                            id="newBankAccountCard" 
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#newBankAccountModal"
+                                            style="cursor: pointer;">
+                                            <div class="py-2">
+                                                <i class="fas fa-plus-circle fa-2x text-primary mb-2"></i>
+                                                <h6 class="mb-0">Thêm tài khoản mới</h6>
                                             </div>
-                                        </label>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
                         
-                        <!-- Form for new bank account -->
-                        <div id="newBankAccountForm" class="d-none mb-4">
-                            <div class="card border border-dashed p-3 mb-3">
-                                <h6 class="mb-3">Thông tin tài khoản mới</h6>
-                                
-                                <div class="mb-3">
-                                    <label for="new_bank_name" class="form-label">Ngân hàng <span class="text-danger">*</span></label>
-                                    <select name="new_bank_name" id="new_bank_name" class="form-select">
-                                        <option value="">-- Chọn ngân hàng --</option>
-                                        {% for value, text in form.fields.new_bank_name.choices %}
-                                            <option value="{{ value }}" {% if form.new_bank_name.value == value %}selected{% endif %}>{{ text }}</option>
-                                        {% endfor %}
-                                    </select>
-                                </div>
-                                
-                                <div class="mb-3 {% if form.new_bank_name.value != 'other' %}d-none{% endif %}" id="otherBankGroup">
-                                    <label for="new_other_bank_name" class="form-label">Tên ngân hàng khác <span class="text-danger">*</span></label>
-                                    <input type="text" name="new_other_bank_name" id="new_other_bank_name" class="form-control" value="{{ form.new_other_bank_name.value|default:'' }}">
-                                </div>
-                                
-                                <div class="mb-3">
-                                    <label for="new_account_name" class="form-label">Chủ tài khoản <span class="text-danger">*</span></label>
-                                    <input type="text" name="new_account_name" id="new_account_name" class="form-control" value="{{ form.new_account_name.value|default:'' }}">
-                                </div>
-                                
-                                <div class="mb-3">
-                                    <label for="new_account_number" class="form-label">Số tài khoản <span class="text-danger">*</span></label>
-                                    <input type="text" name="new_account_number" id="new_account_number" class="form-control" value="{{ form.new_account_number.value|default:'' }}">
-                                </div>
-                                
-                                <div class="mb-3">
-                                    <label for="new_branch" class="form-label">Chi nhánh</label>
-                                    <input type="text" name="new_branch" id="new_branch" class="form-control" value="{{ form.new_branch.value|default:'' }}">
-                                </div>
-                                
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" name="new_is_default" id="new_is_default" {% if form.new_is_default.value %}checked{% endif %}>
-                                    <label class="form-check-label" for="new_is_default">
-                                        Đặt làm tài khoản mặc định
-                                    </label>
-                                </div>
-                            </div>
-                        </div>
+                        
                         {% else %}
                         <div class="alert alert-info rounded-4 mb-4">
                             <div class="d-flex">
@@ -207,9 +166,16 @@
                                 <label for="new_bank_name" class="form-label">Ngân hàng <span class="text-danger">*</span></label>
                                 <select name="new_bank_name" id="new_bank_name" class="form-select">
                                     <option value="">-- Chọn ngân hàng --</option>
-                                    {% for value, text in form.fields.new_bank_name.choices %}
-                                        <option value="{{ value }}" {% if form.new_bank_name.value == value %}selected{% endif %}>{{ text }}</option>
-                                    {% endfor %}
+                                    <option value="Vietcombank" >Vietcombank</option>
+                                    <option value="Techcombank" >Techcombank</option>
+                                    <option value="BIDV" >BIDV</option>
+                                    <option value="Vietinbank" >Vietinbank</option>
+                                    <option value="MB Bank" >MB Bank</option>
+                                    <option value="TPBank" >TPBank</option>
+                                    <option value="ACB" >ACB</option>
+                                    <option value="Sacombank" >Sacombank</option>
+                                    <option value="VPBank" >VPBank</option>
+                                    <option value="Ngân hàng khác" >Ngân hàng khác</option>
                                 </select>
                             </div>
                             
@@ -244,11 +210,11 @@
                         
                         <div class="mb-4">
                             <label for="withdrawNote" class="form-label">Ghi chú (Không bắt buộc)</label>
-                            <textarea name="notes" id="withdrawNote" class="form-control" rows="3" placeholder="Nhập ghi chú của bạn (nếu có)">{{ form.notes.value|default:'' }}</textarea>
+                            <textarea name="notes" id="withdrawNote" class="form-control" rows="3" placeholder="Nhập ghi chú của bạn (nếu có)"></textarea>
                         </div>
                         
                         <div class="form-check mb-4">
-                            <input class="form-check-input" type="checkbox" id="agreeTerms" name="agree_terms" required {% if form.agree_terms.value %}checked{% endif %}>
+                            <input class="form-check-input" type="checkbox" id="agreeTerms" name="agree_terms" required checked>
                             <label class="form-check-label" for="agreeTerms">
                                 Tôi đồng ý với <a href="#" class="text-primary">điều khoản rút tiền</a> của ASTROLUX
                             </label>
@@ -265,7 +231,7 @@
         </div>
         
         <div class="col-lg-4">
-            <div class="card border-0 shadow-sm rounded-4 mb-4 sticky-lg-top" style="top: 100px;" data-aos="fade-up" data-aos-delay="100">
+            <div class="card border-0 shadow-sm rounded-4 mb-4 sticky-lg-top" style="top: 100px; z-index: 10;" data-aos="fade-up" data-aos-delay="100">
                 <div class="card-header bg-primary-light p-4 border-0">
                     <div class="card-heading">
                         <div class="card-heading-icon">
@@ -314,9 +280,6 @@
                         </div>
                     </div>
                 </div>
-            </div>
-            
-            <div class="card border-0 shadow-sm rounded-4" data-aos="fade-up" data-aos-delay="200">
                 <div class="card-body p-4">
                     <h5 class="mb-3">Câu hỏi thường gặp</h5>
                     
@@ -362,7 +325,135 @@
                     </div>
                 </div>
             </div>
+            
         </div>
     </div>
 </div>
+
+
+
+<!-- Modal Thêm tài khoản mới -->
+<div class="modal fade" id="newBankAccountModal" tabindex="-1" aria-labelledby="newBankAccountModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0 shadow">
+            <div class="modal-header border-0 bg-primary-light">
+                <h5 class="modal-title" id="newBankAccountModalLabel">
+                    <i class="fas fa-university me-2"></i>Thêm tài khoản ngân hàng mới
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post" id="bankAccountForm" action="{% url 'bank_account_create' %}">
+                {% csrf_token %}
+                <div class="modal-body p-4">
+                    <!-- Chuyển nội dung form hiện tại vào đây -->
+                    <input type="hidden" name="redirect_url" value="withdraw_money">
+                    <div class="mb-3">
+                        <label for="new_bank_name" class="form-label">Ngân hàng <span class="text-danger">*</span></label>
+                        <select name="new_bank_name" id="new_bank_name" class="form-select">
+                            <option value="">-- Chọn ngân hàng --</option>
+                            <option value="Vietcombank">Vietcombank</option>
+                            <option value="Techcombank">Techcombank</option>
+                            <option value="BIDV">BIDV</option>
+                            <option value="Vietinbank">Vietinbank</option>
+                            <option value="MB Bank">MB Bank</option>
+                            <option value="TPBank">TPBank</option>
+                            <option value="ACB">ACB</option>
+                            <option value="Sacombank">Sacombank</option>
+                            <option value="VPBank">VPBank</option>
+                            <option value="other">Ngân hàng khác</option>
+                        </select>
+                    </div>
+                    {{request.GET.redirect_url}}
+                    <div id="otherBankGroup" class="mb-3 d-none">
+                        <label for="new_other_bank_name" class="form-label">Tên ngân hàng khác <span class="text-danger">*</span></label>
+                        <input type="text" name="new_other_bank_name" id="new_other_bank_name" class="form-control" value="">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="new_account_name" class="form-label">Chủ tài khoản <span class="text-danger">*</span></label>
+                        <input type="text" name="new_account_name" id="new_account_name" class="form-control" value="" placeholder="Nhập tên chủ tài khoản">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="new_account_number" class="form-label">Số tài khoản <span class="text-danger">*</span></label>
+                        <input type="text" name="new_account_number" id="new_account_number" class="form-control" value="" placeholder="Nhập số tài khoản">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="new_branch" class="form-label">Chi nhánh</label>
+                        <input type="text" name="new_branch" id="new_branch" class="form-control" value="" placeholder="Nhập tên chi nhánh">
+                    </div>
+                    
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="new_is_default" id="new_is_default" {% if not user_bank_accounts %}checked{% endif %}>
+                        <label class="form-check-label" for="new_is_default">
+                            Đặt làm tài khoản mặc định
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Hủy bỏ</button>
+                    <button type="submit" class="btn btn-primary rounded-pill px-4" id="saveBankAccount">
+                        <i class="fas fa-save me-1"></i>Tạo tài khoản
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Xử lý khi chọn ngân hàng khác
+    const bankSelect = document.getElementById('new_bank_name');
+    const otherBankGroup = document.getElementById('otherBankGroup');
+    
+    if (bankSelect) {
+        bankSelect.addEventListener('change', function() {
+            if (this.value === 'other') {
+                otherBankGroup.classList.remove('d-none');
+            } else {
+                otherBankGroup.classList.add('d-none');
+            }
+        });
+    }
+    
+    // Xử lý khi lưu tài khoản ngân hàng mới
+    const saveBankBtn = document.getElementById('saveBankAccount');
+    if (saveBankBtn) {
+        saveBankBtn.addEventListener('click', function() {
+            // Validate form
+            const bankName = document.getElementById('new_bank_name').value;
+            const accountName = document.getElementById('new_account_name').value;
+            const accountNumber = document.getElementById('new_account_number').value;
+            
+            let isValid = true;
+            let errorMessage = '';
+            
+            if (!bankName) {
+                isValid = false;
+                errorMessage = 'Vui lòng chọn ngân hàng';
+            } else if (bankName === 'Ngân hàng khác' && !document.getElementById('new_other_bank_name').value) {
+                isValid = false;
+                errorMessage = 'Vui lòng nhập tên ngân hàng';
+            } else if (!accountName) {
+                isValid = false;
+                errorMessage = 'Vui lòng nhập tên chủ tài khoản';
+            } else if (!accountNumber) {
+                isValid = false;
+                errorMessage = 'Vui lòng nhập số tài khoản';
+            }
+            
+            if (!isValid) {
+                alert(errorMessage);
+                return;
+            }
+            // Đóng modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('newBankAccountModal'));
+            modal.hide();
+            
+        });
+    }
+});
+</script>
 {% endblock %}

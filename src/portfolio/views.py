@@ -252,7 +252,7 @@ def dashboard(request):
     if list_stock:
         current_price_symbol = get_current_price(list_stock)
         # current_price_symbol = get_current_price(list_stock).set_index('symbol')['ref_price'].to_dict()
-        total_assets_value = user_balance
+        total_assets_value = 0
         total_profit_loss = 0
         for portfolio in portfolios:
             portfolio_symbol = PortfolioSymbol.objects.filter(portfolio=portfolio)
@@ -267,7 +267,6 @@ def dashboard(request):
             total_profit_loss += ((total_df['ref_price'] - total_df['average_price']) * total_df['quantity']).sum()
         total_profit_loss_percentage = round(total_profit_loss / total_assets_value * 100, 2) if total_assets_value != 0 else 0
     else:
-        total_assets_value = user_balance
         total_profit_loss = 0
         total_profit_loss_percentage = 0
 
@@ -290,6 +289,8 @@ def dashboard(request):
     }
     return render(request, 'portfolio/dashboard.html', context)
 
+
+@login_required
 def portfolio_list(request):
     # user = User.objects.get(pk=1)
     user = request.user
@@ -635,40 +636,6 @@ def asset_list(request):
     }
     return render(request, 'portfolio/asset_list.html', context)
 
-@login_required
-def asset_create(request):
-    # if request.method == 'POST':
-    #     form = AssetForm(request.POST)
-    #     if form.is_valid():
-    #         form.save()
-    #         messages.success(request, 'Tài sản đã được thêm thành công!')
-    #         return redirect('asset_list')
-    # else:
-    #     form = AssetForm()
-    return render(request, 'portfolio/asset_form.html')
-
-@login_required
-def asset_detail(request, pk):
-#     asset = get_object_or_404(Asset, pk=pk)
-    return render(request, 'portfolio/asset_detail.html')
-
-@login_required
-def asset_update(request, pk):
-#     asset = get_object_or_404(Asset, pk=pk)
-#     if request.method == 'POST':
-#         form = AssetForm(request.POST, instance=asset)
-#         if form.is_valid():
-#             form.save()
-#             messages.success(request, 'Tài sản đã được cập nhật!')
-#             return redirect('asset_detail', pk=pk)
-#     else:
-#         form = AssetForm(instance=asset)
-#     return render(request, 'portfolio/asset_form.html', {
-#         'form': form,
-#         'title': 'Chỉnh sửa tài sản'
-#     })
-    return render(request, 'portfolio/asset_form.html')
-
 
 @login_required
 def transaction_list(request):
@@ -717,24 +684,6 @@ def transaction_list(request):
     }
     return render(request, 'portfolio/transaction_list.html', context)
     # return render(request, 'portfolio/transaction_list.html')
-
-@login_required
-def transaction_create(request):
-    # if request.method == 'POST':
-    #     form = TransactionForm(request.POST)
-    #     if form.is_valid():
-    #         transaction = form.save(commit=False)
-    #         transaction.total_amount = transaction.quantity * transaction.price
-    #         transaction.save()
-    #         messages.success(request, 'Giao dịch đã được tạo thành công!')
-    #         return redirect('transaction_list')
-    # else:
-    #     form = TransactionForm()
-    # return render(request, 'portfolio/transaction_form.html', {
-    #     'form': form,
-    #     'title': 'Tạo giao dịch mới'
-    # })
-    return render(request, 'portfolio/transaction_form.html')
 
 
 @login_required
@@ -973,7 +922,7 @@ def wallet(request):
     # user = User.objects.get(pk=1)
     user_wallet = Wallet.objects.get(user=user)
     user_balance = user_wallet.balance
-    user_bank_accounts = BankAccount.objects.filter(user=user).order_by('-is_default', '-created_at')
+    user_bank_accounts = BankAccount.objects.filter(user=user).order_by('-is_default', '-created_at')[:5]
     context = {
         "user_balance": user_balance,
         "user_bank_accounts": user_bank_accounts,
@@ -1001,11 +950,23 @@ def verify_deposit(request, transaction_id=None):
 
 # @login_required
 def withdraw_money(request):
-    return render(request, 'portfolio/withdraw.html')
+    user = request.user
+    user_balance = Wallet.objects.get(user=user).balance
+    user_bank_accounts = BankAccount.objects.filter(user=user).order_by('-is_default', '-created_at')
+    context = {
+        "user_balance": user_balance,
+        "user_bank_accounts" : user_bank_accounts,
+    }
+    return render(request, 'portfolio/withdraw.html', context)
 
 # @login_required
 def wallet_transactions(request):
-    return render(request, 'portfolio/wallet_transactions.html')
+    user = request.user
+    bank_transactions = BankTransaction.objects.filter(user=user).order_by('-transaction_time')
+    context = {
+        'bank_transactions': bank_transactions,
+    }
+    return render(request, 'portfolio/wallet_transactions.html', context)
 
 
 @login_required
@@ -1039,8 +1000,11 @@ def bank_account_create(request):
             errors.append("Vui lòng chọn ngân hàng")
         
         # Nếu chọn "Ngân hàng khác" nhưng không nhập tên ngân hàng
-        if bank_name == "Ngân hàng khác" and not other_bank_name:
-            errors.append("Vui lòng nhập tên ngân hàng khác")
+        if bank_name == "orther":
+            if not other_bank_name:
+                errors.append("Vui lòng nhập tên ngân hàng khác")
+            else:
+                bank_name = other_bank_name
         
         if not account_name:
             errors.append("Vui lòng nhập tên chủ tài khoản")
@@ -1080,7 +1044,9 @@ def bank_account_create(request):
             )
             
             messages.success(request, f'Đã thêm tài khoản ngân hàng {final_bank_name} - {account_number}')
-            return redirect('bank_account_list')
+        redirect_url = request.POST.get('redirect_url', 'deposit_money')
+        print(redirect_url)
+        return redirect(redirect_url)
 
     return render(request, 'portfolio/bank_account_form.html')
 
@@ -1306,7 +1272,7 @@ def ai_chat_api(request):
 def debug_assets(request):
     """Debug view to directly test asset retrieval"""
     # Get all assets
-    all_assets = Asset.objects.all()
+    all_assets = Assets.objects.all()
     
     # Create a simple context
     context = {
@@ -1738,3 +1704,4 @@ def get_current_price_symbol_api(request):
     
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    

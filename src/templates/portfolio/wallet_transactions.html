@@ -49,7 +49,7 @@
         </div>
     </div>
     
-    {% if messages %}
+    <!-- {% if messages %}
         {% for message in messages %}
             <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} rounded-4 mb-4">
                 <div class="d-flex">
@@ -63,7 +63,7 @@
                 </div>
             </div>
         {% endfor %}
-    {% endif %}
+    {% endif %} -->
     
     <!-- Bộ lọc -->
     <div class="card border-0 shadow-sm rounded-4 mb-4" data-aos="fade-up">
@@ -133,7 +133,7 @@
                     <tbody>
                         {% for transaction in transactions %}
                         <tr>
-                            <td class="ps-4">{{ transaction.created_at|date:"d/m/Y H:i" }}</td>
+                            <td class="ps-4">{{ transaction.transaction_time|date:"d/m/Y H:i" }}</td>
                             <td>
                                 <div class="d-flex align-items-center">
                                     <div class="icon-circle {% if transaction.type == 'deposit' %}bg-success-light text-success{% else %}bg-danger-light text-danger{% endif %} me-2" style="width: 32px; height: 32px;">
@@ -152,14 +152,14 @@
                                 <span class="text-success">Miễn phí</span>
                                 {% endif %}
                             </td>
-                            <td>{{ transaction.get_payment_method_display }}</td>
+                            <td>Chuyển khoản ngân hàng</td>
                             <td>
                                 <span class="badge {% if transaction.status == 'completed' %}bg-success{% elif transaction.status == 'pending' %}bg-warning{% elif transaction.status == 'failed' %}bg-danger{% else %}bg-secondary{% endif %} rounded-pill">
                                     {{ transaction.get_status_display }}
                                 </span>
                             </td>
                             <td class="text-end pe-4">
-                                <span class="text-monospace small">{{ transaction.transaction_id }}</span>
+                                <span class="text-monospace small">{{ transaction.id }}</span>
                             </td>
                         </tr>
                         {% endfor %}

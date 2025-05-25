@@ -66,9 +66,9 @@ def get_current_price(stock_code):
         data = data_board[[('listing', 'symbol'), 
                         ('listing', 'ref_price'), 
                         ('match', 'match_price')]]
-        data.columns = ['symbol', 'ref_price', 'match_price']
         if data.empty:
             return f'Không tìm thấy giá!'
+        data.columns = ['symbol', 'ref_price', 'match_price']
         data.loc[data['match_price'] != 0, 'ref_price'] = data['match_price']
         data_price = data[['symbol', 'ref_price', 'match_price']]
         return data_price

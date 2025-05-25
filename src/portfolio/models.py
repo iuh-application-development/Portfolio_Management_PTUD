@@ -114,6 +114,14 @@ class BankTransaction(models.Model):
             models.Index(fields=['status']),
             models.Index(fields=['transaction_time']),
         ]
+    
+    def get_status_display(self):
+        """Trả về tên trạng thái giao dịch"""
+        return dict(self.TYPE_CHOICES).get(self.type)
+    
+    def get_status_display(self):
+        """Trả về tên trạng thái giao dịch"""
+        return dict(self.STATUS_CHOICES).get(self.status)
         
     # def save(self, *args, **kwargs):
     #     # Cập nhật số dư ví khi giao dịch hoàn thành
