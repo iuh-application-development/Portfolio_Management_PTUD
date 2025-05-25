@@ -88,7 +88,7 @@ def generate_qr_code(amount, transaction_id, username=None):
     """
     # Thông tin ngân hàng mặc định (MB Bank)
     BANK_ID = "MB"
-    ACCOUNT_NO = "0967720844"
+    ACCOUNT_NO = "99924999999"
     
     # Tạo nội dung chuyển khoản bao gồm mã giao dịch, số tiền và tên người dùng
     transfer_content = transaction_id
@@ -130,7 +130,7 @@ def check_paid(transaction_id=None, amount=None):
         print(f"[DEBUG] Đang kiểm tra giao dịch với mã: {transaction_id}, số tiền: {amount}")
         
         # URL API lấy thông tin giao dịch
-        url = "https://script.googleusercontent.com/macros/echo?user_content_key=AehSKLgCoMh1JB6pFLJafVjP7sVQi3PJxLfpVv_gyUFSucJPE2sl_ZFuxRCClfN_6HVUDuv4PlZ6OXlJKoFc76l6NjufxugonvGFjvIL0i2nAzYDofg-zL_AJihhpNqHSeBrDPziFobF-Z1K-gAX51FSqggd8R5rs522K3apY-LIjQb373HY_iY7HFAU2X8l8416q46_Uk9VhUEq5I4PUEYAv9CPfe132xC0px8C_-IIQ6ETormkarUr_cfY9xRLu1atd9uiToF0rcsDx55VMAKA7mof4zAFfg&lib=MCHFsWSHu2AnRDw8q22GOYXaf-U4XPmlc"
+        url = "https://script.google.com/macros/s/AKfycbzKZpHfNxncQvpuVzqGyXTc5Jf2_rLcA8zo99oH2w0QADShVbHa848L3wjVkIVSudsn/exec"
         print(f"[DEBUG] Đang truy vấn API với transaction_id: {transaction_id}")
         
         response = requests.get(url)

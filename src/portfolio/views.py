@@ -13,6 +13,8 @@ from django.urls import reverse
 from django.conf import settings
 from rest_framework import status
 
+import uuid
+import requests # Thêm import này
 
 from .models import Portfolio, PortfolioSymbol, Assets, User, Wallet, StockTransaction, BankAccount, BankTransaction
 # from .forms import PortfolioForm, AssetForm, TransactionForm, UserRegistrationForm, UserProfileForm
@@ -23,11 +25,10 @@ from .vnstock_services import (
 from .utils import generate_qr_code, check_paid
 
 from vnstock import Vnstock
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from .utils import get_ai_response, get_auth0_user_profile
 from urllib.parse import quote_plus, urlencode
 import os
-import uuid
 import json
 import pandas as pd
 import random
@@ -933,20 +934,173 @@ def wallet(request):
 @login_required
 def deposit_money(request):
     user_bank_accounts = BankAccount.objects.filter(user=request.user).order_by('-is_default', '-created_at')
+    wallet = Wallet.objects.get(user=request.user)
+
+    # Giá trị mặc định ban đầu khi vào trang (GET request)
+    initial_transaction_id = f"DEP{uuid.uuid4().hex[:8].upper()}"
+    initial_amount = Decimal('100000')
+
     context = {
         "user_bank_accounts": user_bank_accounts,
+        "current_page": "deposit_money",
+        "transaction_id": initial_transaction_id,
+        "amount_to_deposit": initial_amount,
+        "qr_code_url": generate_qr_code(amount=initial_amount, transaction_id=initial_transaction_id, username=request.user.username)
     }
+
+    if request.method == 'POST':
+        # Lấy transaction_id và amount từ POST. Đây là các giá trị mà người dùng đã thấy và có thể đã sử dụng.
+        tid_from_form = request.POST.get('transaction_id')
+        amount_str_from_form = request.POST.get('amount')
+
+        if not tid_from_form or not amount_str_from_form:
+            messages.error(request, "Thiếu thông tin mã giao dịch hoặc số tiền. Vui lòng thử lại.")
+            # Render lại với context hiện tại (có thể là giá trị GET ban đầu hoặc giá trị từ lần POST trước đó không thành công)
+            # Nếu POST thiếu dữ liệu, context['transaction_id'] và context['amount_to_deposit'] sẽ giữ giá trị từ GET.
+            # Hoặc nếu đây là POST thứ N, chúng sẽ là giá trị từ POST thứ N-1 đã được gán vào context.
+            context['qr_code_url'] = generate_qr_code(amount=context['amount_to_deposit'], transaction_id=context['transaction_id'], username=request.user.username)
+            return render(request, 'portfolio/deposit.html', context)
+
+        try:
+            amount_from_form = Decimal(amount_str_from_form)
+            if amount_from_form < 50000:
+                messages.error(request, "Số tiền nạp tối thiểu là 50,000 VNĐ.")
+                # Cập nhật context với giá trị người dùng vừa nhập để hiển thị lại
+                context['transaction_id'] = tid_from_form 
+                context['amount_to_deposit'] = amount_from_form
+                context['qr_code_url'] = generate_qr_code(amount=amount_from_form, transaction_id=tid_from_form, username=request.user.username)
+                return render(request, 'portfolio/deposit.html', context)
+        except (ValueError, TypeError):
+            messages.error(request, "Số tiền không hợp lệ.")
+            context['transaction_id'] = tid_from_form 
+            context['amount_to_deposit'] = initial_amount # Fallback nếu số tiền nhập lỗi
+            context['qr_code_url'] = generate_qr_code(amount=context['amount_to_deposit'], transaction_id=tid_from_form, username=request.user.username)
+            return render(request, 'portfolio/deposit.html', context)
+
+        # Cập nhật context với giá trị từ form cho các lần render tiếp theo (nếu có)
+        context['transaction_id'] = tid_from_form
+        context['amount_to_deposit'] = amount_from_form
+        
+        if 'confirm_transfer' in request.POST:
+            # Người dùng nhấn nút xác nhận cuối cùng
+            print(f"[DEBUG] Finalizing deposit. TID from POST: {tid_from_form}, Amount from POST: {amount_from_form}, User: {request.user.username}")
+
+            if BankTransaction.objects.filter(description__startswith=tid_from_form, status='completed', user=request.user).exists():
+                messages.info(request, f"Giao dịch với mã {tid_from_form} đã được hệ thống xác nhận trước đó.")
+                return redirect('wallet')
+
+            google_apps_script_url = "https://script.google.com/macros/s/AKfycbzKZpHfNxncQvpuVzqGyXTc5Jf2_rLcA8zo99oH2w0QADShVbHa848L3wjVkIVSudsn/exec"
+            found_matching_transaction_in_bank = False
+            try:
+                response = requests.get(google_apps_script_url, timeout=15) # Tăng timeout
+                response.raise_for_status()
+                bank_transactions_data = response.json()
+
+                if bank_transactions_data.get("error") or not bank_transactions_data.get("data"):
+                    messages.error(request, "Dịch vụ ngân hàng không trả về dữ liệu giao dịch hợp lệ hoặc báo lỗi.")
+                else:
+                    for bank_tran in bank_transactions_data["data"]:
+                        description_from_bank = bank_tran.get("Mô tả", "")
+                        amount_from_bank_str = str(bank_tran.get("Giá trị", "0"))
+                        
+                        # Kiểm tra kỹ hơn dữ liệu từ bank
+                        if not description_from_bank or not amount_from_bank_str:
+                            print(f"[DEBUG] Skipping bank transaction due to missing description or amount: {bank_tran}")
+                            continue
+                        try:    
+                            bank_amount = Decimal(amount_from_bank_str)
+                        except ValueError:
+                            print(f"[DEBUG] Skipping bank transaction due to invalid amount: {bank_tran}")
+                            continue
+
+                        # Logic trích xuất thông tin từ "Mô tả" của ngân hàng: "MãGD SốTiền TênUser ..."
+                        # Ví dụ: "DEPXXXXX 100000 username123 ..."
+                        desc_parts = str(description_from_bank).strip().split() # Ép kiểu thành chuỗi để tránh lỗi
+                        if len(desc_parts) >= 3: # Cần ít nhất Mã GD, Số tiền, Tên User
+                            bank_tid_candidate = desc_parts[0]
+                            bank_amount_candidate_str = desc_parts[1]
+                            bank_username_candidate = desc_parts[2]
+                            
+                            try:
+                                bank_amount_in_desc = Decimal(bank_amount_candidate_str)
+                            except (ValueError, InvalidOperation):
+                                print(f"[DEBUG] Invalid amount in bank description, skipping: {description_from_bank}")
+                                continue
+
+                            print(f"[DEBUG] Comparing: Form TID({tid_from_form}) vs BankTID({bank_tid_candidate}), Form Amount({amount_from_form}) vs BankAmountInDesc({bank_amount_in_desc}), Form User({request.user.username}) vs BankUser({bank_username_candidate})")
+                            print(f"[DEBUG] Also checking Form Amount({amount_from_form}) vs BankAmountFromJson({bank_amount})")
+
+
+                            # Điều kiện khớp:
+                            # 1. Mã giao dịch trong mô tả của bank PHẢI khớp với tid_from_form
+                            # 2. Số tiền trong mô tả của bank PHẢI khớp với amount_from_form
+                            # 3. Tên user trong mô tả của bank PHẢI khớp với request.user.username
+                            # 4. Số tiền "Giá trị" từ JSON của bank PHẢI khớp với amount_from_form (kiểm tra chéo)
+                            if (bank_tid_candidate == tid_from_form and 
+                                bank_amount_in_desc == amount_from_form and 
+                                bank_username_candidate == request.user.username and
+                                bank_amount == amount_from_form):
+                                found_matching_transaction_in_bank = True
+                                internal_description = f"{tid_from_form} {int(amount_from_form)} {request.user.username}"
+                                try:
+                                    with transaction.atomic():
+                                        BankTransaction.objects.create(
+                                            user=request.user,
+                                            type='deposit',
+                                            quantity=amount_from_form, 
+                                            status='completed',
+                                            description=internal_description, # Sử dụng mô tả đã chuẩn hóa
+                                            transaction_time=timezone.now(),
+                                            completed_at=timezone.now(),
+                                            fee=Decimal('0')
+                                        )
+                                        wallet.balance = F('balance') + amount_from_form # Sử dụng F expression
+                                        wallet.save(update_fields=['balance'])
+                                        wallet.refresh_from_db() # Đảm bảo đọc giá trị mới nhất
+                                    messages.success(request, f"Nạp tiền thành công {amount_from_form:,.0f} VNĐ vào ví của bạn! Số dư mới: {wallet.balance:,.0f} VNĐ.")
+                                    return redirect('wallet')
+                                except Exception as e:
+                                    messages.error(request, f"Lỗi khi xử lý giao dịch nội bộ: {str(e)}")
+                                    print(f"[ERROR] Internal transaction processing error: {e}")
+                                break # Đã tìm thấy và xử lý, thoát vòng lặp
+            except requests.exceptions.RequestException as e:
+                messages.error(request, f"Lỗi khi kết nối đến dịch vụ ngân hàng: {str(e)}")
+                print(f"[ERROR] Bank service connection error: {e}")
+            except ValueError as e: # Lỗi JSONDecodeError hoặc khi convert Decimal
+                messages.error(request, f"Lỗi khi đọc dữ liệu từ dịch vụ ngân hàng: {str(e)}")
+                print(f"[ERROR] Bank data processing error: {e}")
+                # Log a nội dung phản hồi không phải JSON
+                if 'response' in locals() and hasattr(response, 'text'):
+                    print(f"[DEBUG] Non-JSON response from bank service: {response.text[:500]}") # Log 500 ký tự đầu
+
+            if not found_matching_transaction_in_bank and not messages.get_messages(request): # Chỉ thêm message nếu chưa có lỗi nào khác
+                messages.error(request, "Không tìm thấy giao dịch chuyển khoản nào khớp với yêu cầu của bạn trong dữ liệu ngân hàng hoặc giao dịch đã được xử lý. Vui lòng thử lại sau vài phút hoặc kiểm tra lại thông tin chuyển khoản.")
+            
+            # Nếu không redirect sau khi xác nhận (do lỗi hoặc không tìm thấy), render lại trang với QR hiện tại
+            context['qr_code_url'] = generate_qr_code(amount=amount_from_form, transaction_id=tid_from_form, username=request.user.username)
+            print(f"[DEBUG] Rendering deposit page after confirm_transfer logic. TID: {tid_from_form}, Amount: {amount_from_form}")
+            return render(request, 'portfolio/deposit.html', context)
+        else:
+            # Không phải 'confirm_transfer', chỉ là cập nhật số tiền/QR
+            # Mã QR sẽ được tạo với tid_from_form và amount_from_form
+            context['qr_code_url'] = generate_qr_code(amount=amount_from_form, transaction_id=tid_from_form, username=request.user.username)
+            print(f"[DEBUG] Rendering deposit page after amount update (not confirm). TID: {tid_from_form}, Amount: {amount_from_form}")
+            return render(request, 'portfolio/deposit.html', context)
+
+    # Request method is GET
+    print(f"[DEBUG] Rendering deposit page for GET. TID: {context['transaction_id']}, Amount: {context['amount_to_deposit']}")
     return render(request, 'portfolio/deposit.html', context)
 
+# Loại bỏ hàm verify_deposit
 # @login_required
-def verify_deposit(request, transaction_id=None):
-    """View to verify deposit transactions"""
-    if request.method != 'POST':
-        messages.success(request, "Xác nhận nạp tiền thành công! Số dư của bạn đã được cập nhật.")
-        return redirect('deposit_money')
-    
-    # Just show success message and redirect
-    return redirect('wallet')
+# def verify_deposit(request, transaction_id=None):
+#     """View to verify deposit transactions"""
+#     if request.method != 'POST':
+#         messages.success(request, "Xác nhận nạp tiền thành công! Số dư của bạn đã được cập nhật.")
+#         return redirect('deposit_money')
+#     
+#     # Just show success message and redirect
+#     return redirect('wallet')
 
 # @login_required
 def withdraw_money(request):

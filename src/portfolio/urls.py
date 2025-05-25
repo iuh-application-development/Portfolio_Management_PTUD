@@ -2,7 +2,7 @@ from django.urls import path
 from django.contrib.auth import views as auth_views
 from . import views
 # from . import views_wallet
-# import portfolio.views
+import portfolio.views
 
 urlpatterns = [
     path('', views.home, name='home'),
@@ -39,7 +39,6 @@ urlpatterns = [
     # URLs cho ví điện tử
     path('wallet/', views.wallet, name='wallet'),
     path('wallet/deposit/', views.deposit_money, name='deposit_money'),
-    path('wallet/deposit/verify/', views.verify_deposit, name='verify_deposit'),
     path('wallet/withdraw/', views.withdraw_money, name='withdraw_money'),
     path('wallet/transactions/', views.wallet_transactions, name='wallet_transactions'),
     path('wallet/bank-accounts/', views.bank_account_list, name='bank_account_list'),
