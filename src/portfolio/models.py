@@ -78,9 +78,6 @@ class BankAccount(models.Model):
             models.Index(fields=['user']),
             models.Index(fields=['account_number']),
         ]
-    def get_bank_name_display(self):
-        """Trả về tên ngân hàng"""
-        return dict(self.BANK_CHOICES).get(self.bank_name)
 
 
 class BankTransaction(models.Model):

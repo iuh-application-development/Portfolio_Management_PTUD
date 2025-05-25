@@ -1032,27 +1032,135 @@
             transform: translateY(-2px);
             box-shadow: 0 4px 12px rgba(91, 33, 182, 0.3);
         }
+        
+        /* Toast Notification System */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1060;
+            max-width: 350px;
+        }
+        
+        .toast {
+            opacity: 0;
+            transform: translateX(20px);
+            transition: all 0.35s ease;
+            border: none;
+            border-radius: var(--radius-md);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+            overflow: hidden;
+            margin-bottom: 15px;
+            background-color: white;
+        }
+        
+        .toast.show {
+            opacity: 1;
+            transform: translateX(0);
+        }
+        
+        .toast-header {
+            padding: 0.75rem 1rem;
+            display: flex;
+            align-items: center;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+        }
+        
+        .toast.success .toast-header {
+            background-color: rgba(76, 175, 80, 0.1);
+            color: #2e7d32;
+        }
+        
+        .toast.error .toast-header {
+            background-color: rgba(244, 67, 54, 0.1);
+            color: #c62828;
+        }
+        
+        .toast.warning .toast-header {
+            background-color: rgba(255, 152, 0, 0.1);
+            color: #ef6c00;
+        }
+        
+        .toast.info .toast-header {
+            background-color: rgba(3, 169, 244, 0.1);
+            color: #0277bd;
+        }
+        
+        .toast-body {
+            padding: 1rem;
+            color: var(--text-primary);
+        }
+        
+        .toast-icon {
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            margin-right: 10px;
+        }
+        
+        .toast.success .toast-icon {
+            background-color: #4caf50;
+            color: white;
+        }
+        
+        .toast.error .toast-icon {
+            background-color: #f44336;
+            color: white;
+        }
+        
+        .toast.warning .toast-icon {
+            background-color: #ff9800;
+            color: white;
+        }
+        
+        .toast.info .toast-icon {
+            background-color: #03a9f4;
+            color: white;
+        }
+        
+        .toast .progress {
+            height: 3px;
+            background: rgba(0, 0, 0, 0.1);
+        }
+        
+        .toast .progress-bar {
+            height: 3px;
+            transition: width linear;
+        }
+        
+        .toast.success .progress-bar {
+            background-color: #4caf50;
+        }
+        
+        .toast.error .progress-bar {
+            background-color: #f44336;
+        }
+        
+        .toast.warning .progress-bar {
+            background-color: #ff9800;
+        }
+        
+        .toast.info .progress-bar {
+            background-color: #03a9f4;
+        }
+        
+        @keyframes progress-bar-animation {
+            from { width: 100%; }
+            to { width: 0%; }
+        }
     </style>
     
     {% block extra_css %}{% endblock %}
 </head>
 <body>
-    <!-- Alert message -->
-    {% if messages %}
-        {% for message in messages %}
-            <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} rounded-4 mb-4">
-                <div class="d-flex">
-                    <div class="me-3">
-                        <i class="fas fa-{% if message.tags == 'error' %}exclamation-circle{% elif message.tags == 'success' %}check-circle{% else %}info-circle{% endif %} fa-2x"></i>
-                    </div>
-                    <div>
-                        <h6 class="alert-heading">Thông báo</h6>
-                        <p class="mb-0">{{ message|safe }}</p>
-                    </div>
-                </div>
-            </div>
-        {% endfor %}
-    {% endif %}
+    <!-- Toast Container for notifications -->
+    <div class="toast-container" id="toastContainer">
+        <!-- Toasts will be added here dynamically -->
+    </div>
+    
     <!-- Navbar -->
     <nav class="navbar navbar-expand-lg navbar-light bg-white sticky-top">
         <div class="container">
@@ -1089,7 +1197,7 @@
                         </a>
                     </li>
                     <li class="nav-item has-notification">
-                        <a class="nav-link {% if '/wallet/' in request.path %}active{% endif %}" href="{% url 'wallet' %}">
+                        <a class="nav-link {% if '/wallet/' in request.path and '/transactions/' not in request.path %}active{% endif %}" href="{% url 'wallet' %}">
                             <i class="fas fa-wallet me-1"></i> Ví điện tử
                         </a>
                     </li>
@@ -1221,6 +1329,99 @@
             duration: 800,
             easing: 'ease-in-out',
             once: true
+        });
+        
+        // Toast notification system
+        document.addEventListener('DOMContentLoaded', function() {
+            // Function to create and show toast notifications
+            function showToast(message, type = 'info', autoDismiss = true, duration = 5000) {
+                const toastContainer = document.getElementById('toastContainer');
+                const toast = document.createElement('div');
+                toast.className = `toast ${type}`;
+                
+                let icon = '';
+                let headerText = 'Thông báo';
+                
+                switch(type) {
+                    case 'success':
+                        icon = 'fa-check-circle';
+                        headerText = 'Thành công';
+                        break;
+                    case 'error':
+                        icon = 'fa-exclamation-circle';
+                        headerText = 'Lỗi';
+                        break;
+                    case 'warning':
+                        icon = 'fa-exclamation-triangle';
+                        headerText = 'Cảnh báo';
+                        break;
+                    default:
+                        icon = 'fa-info-circle';
+                        headerText = 'Thông tin';
+                }
+                
+                toast.innerHTML = `
+                    <div class="toast-header">
+                        <div class="toast-icon">
+                            <i class="fas ${icon}"></i>
+                        </div>
+                        <strong class="me-auto">${headerText}</strong>
+                        <small class="text-muted">ngay bây giờ</small>
+                        <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+                    </div>
+                    <div class="toast-body">
+                        ${message}
+                    </div>
+                    <div class="progress">
+                        <div class="progress-bar" role="progressbar"></div>
+                    </div>
+                `;
+                
+                toastContainer.appendChild(toast);
+                
+                // Show the toast with a slight delay for animation
+                setTimeout(() => {
+                    toast.classList.add('show');
+                    
+                    if (autoDismiss) {
+                        const progressBar = toast.querySelector('.progress-bar');
+                        progressBar.style.animation = `progress-bar-animation ${duration}ms linear forwards`;
+                        
+                        // Auto dismiss after duration
+                        setTimeout(() => {
+                            toast.classList.remove('show');
+                            
+                            // Remove toast from DOM after animation completes
+                            setTimeout(() => {
+                                toast.remove();
+                            }, 350);
+                        }, duration);
+                    }
+                }, 100);
+                
+                // Add event listener for close button
+                const closeButton = toast.querySelector('.btn-close');
+                closeButton.addEventListener('click', () => {
+                    toast.classList.remove('show');
+                    
+                    // Remove toast from DOM after animation completes
+                    setTimeout(() => {
+                        toast.remove();
+                    }, 350);
+                });
+            }
+            
+            // Process Django messages and show as toasts
+            {% if messages %}
+                {% for message in messages %}
+                    let messageType = '{{ message.tags }}';
+                    if (messageType === 'error') messageType = 'error';
+                    showToast('{{ message|safe }}', messageType);
+                {% endfor %}
+            {% endif %}
+            
+            // Expose the showToast function globally so it can be used from other scripts
+            window.showToast = showToast;
         });
     </script>
     <script src="{% static 'portfolio/js/chat.js' %}"></script>

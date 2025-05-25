@@ -15,7 +15,7 @@ from rest_framework import status
 
 from .models import Portfolio, PortfolioSymbol, Assets, User, Wallet, StockTransaction, BankAccount, BankTransaction
 from .vnstock_services import (
-    get_historical_data, get_ticker_companyname, get_current_price, get_company_name
+    get_historical_data, get_ticker_companyname, get_current_price, get_company_name, get_price_board
 )
 from .utils import get_ai_response, get_auth0_user_profile, generate_qr_code, check_paid
 
@@ -604,6 +604,7 @@ def asset_list(request):
         # print('='*100)
         # print(stock.company_name)
         stock.total_buy_price_symbol = stock.quantity * stock.current_price
+        stock.profit_loss = (stock.current_price - stock.average_price) * stock.quantity
         stock.profit_loss_percentage = (stock.current_price - stock.average_price)/stock.average_price * 100
         # print(stock.current_price)
     total_assets = assets.aggregate(
@@ -675,8 +676,8 @@ def transaction_list(request):
         'stock_transactions': stock_transactions,
         'portfolios': portfolios,
     }
-    return render(request, 'portfolio/transaction_list.html', context)
-    # return render(request, 'portfolio/transaction_list.html')
+    return render(request, 'portfolio/stock_transaction.html', context)
+    # return render(request, 'portfolio/stock_transaction.html')
 
 
 @login_required
@@ -943,7 +944,7 @@ def portfolio_transactions(request, portfolio_id):
         'stock_transactions': stock_transactions,
         'portfolios': portfolios,
     }
-    return render(request, 'portfolio/transaction_list.html', context)
+    return render(request, 'portfolio/stock_transaction.html', context)
     # return render(request, 'portfolio/portfolio_transactions.html')
 
 

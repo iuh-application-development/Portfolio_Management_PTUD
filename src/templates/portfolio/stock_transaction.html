@@ -12,54 +12,54 @@
             </div>
             <h2 class="fw-bold mb-0">Lịch sử giao dịch</h2>
         </div>
-        <!-- <a href="" class="btn btn-primary btn-rounded" data-aos="fade-left">
-            <i class="fas fa-plus me-2"></i>Tạo giao dịch mới
-        </a> -->
+        <div class="btn-group" role="group" aria-label="Transaction Type Toggle">
+            <a href="{% url 'transaction_list' %}" class="btn btn-primary active">
+                <i class="fas fa-chart-line me-2"></i>Giao dịch cổ phiếu
+            </a>
+            <a href="{% url 'wallet_transactions' %}" class="btn btn-outline-primary">
+                <i class="fas fa-wallet me-2"></i>Giao dịch ví
+            </a>
+        </div>
     </div>
 
     <div class="card border-0 shadow-sm rounded-4 mb-4" data-aos="fade-up" data-aos-delay="100">
         <div class="card-body p-4">
-            <form method="get" class="row g-3">
-                <div class="col-md-3">
-                    <div class="form-floating">
-                        <select name="portfolio" class="form-select" id="portfolioSelect">
-                            <option value="">Tất cả danh mục</option>
-                            {% for p in portfolios %}
-                                <option value="{{ p.id }}" {% if request.GET.portfolio == p.id|stringformat:"i" %}selected{% endif %}>
-                                    {{ p.name }}
-                                </option>
-                            {% endfor %}
-                            <option value="-1">Đã xóa</option>
-                        </select>
-                        <label for="portfolioSelect">Danh mục</label>
-                    </div>
+            <form method="get" class="row g-3 align-items-end">
+                <div class="col-md-3 col-sm-6">
+                    <label class="form-label small">Danh mục</label>
+                    <select name="portfolio" class="form-select form-select-sm" id="portfolioSelect">
+                        <option value="">Tất cả danh mục</option>
+                        {% for p in portfolios %}
+                            <option value="{{ p.id }}" {% if request.GET.portfolio == p.id|stringformat:"i" %}selected{% endif %}>
+                                {{ p.name }}
+                            </option>
+                        {% endfor %}
+                        <option value="-1">Đã xóa</option>
+                    </select>
                 </div>
-                <div class="col-md-2">
-                    <div class="form-floating">
-                        <select name="type" class="form-select" id="typeSelect">
-                            <option value="">Tất cả loại</option>
-                            <option value="buy" {% if request.GET.type == 'buy' %}selected{% endif %}>Mua</option>
-                            <option value="sell" {% if request.GET.type == 'sell' %}selected{% endif %}>Bán</option>
-                        </select>
-                        <label for="typeSelect">Loại giao dịch</label>
-                    </div>
+                <div class="col-md-3 col-sm-6">
+                    <label class="form-label small">Loại giao dịch</label>
+                    <select name="type" class="form-select form-select-sm" id="typeSelect">
+                        <option value="">Tất cả loại</option>
+                        <option value="buy" {% if request.GET.type == 'buy' %}selected{% endif %}>Mua</option>
+                        <option value="sell" {% if request.GET.type == 'sell' %}selected{% endif %}>Bán</option>
+                    </select>
                 </div>
-                <div class="col-md-3">
-                    <div class="form-floating">
-                        <input type="date" name="from_date" class="form-control" id="fromDate" value="{{ request.GET.from_date }}">
-                        <label for="fromDate">Từ ngày</label>
-                    </div>
+                <div class="col-md-2 col-sm-6">
+                    <label class="form-label small">Từ ngày</label>
+                    <input type="date" name="from_date" class="form-control form-control-sm" id="fromDate" value="{{ request.GET.from_date }}">
                 </div>
-                <div class="col-md-3">
-                    <div class="form-floating">
-                        <input type="date" name="to_date" class="form-control" id="toDate" value="{{ request.GET.to_date }}">
-                        <label for="toDate">Đến ngày</label>
-                    </div>
+                <div class="col-md-2 col-sm-6">
+                    <label class="form-label small">Đến ngày</label>
+                    <input type="date" name="to_date" class="form-control form-control-sm" id="toDate" value="{{ request.GET.to_date }}">
                 </div>
-                <div class="col-md-1">
-                    <button type="submit" class="btn btn-primary w-100 h-100 btn-rounded">
-                        <i class="fas fa-filter"></i>
+                <div class="col-md-2 d-flex">
+                    <button type="submit" class="btn btn-primary btn-sm">
+                        <i class="fas fa-filter me-1"></i> Lọc
                     </button>
+                    <a href="{% url 'transaction_list' %}" class="btn btn-light btn-sm ms-2">
+                        <i class="fas fa-redo me-1"></i> Đặt lại
+                    </a>
                 </div>
             </form>
         </div>
@@ -86,7 +86,7 @@
                     <tbody>
                         {% for transaction in stock_transactions %}
                         <tr>
-                            <td class="ps-4">{{ forloop.counter }}</td>
+                            <td class="ps-4">{{ stock_transactions.start_index|add:forloop.counter0 }}</td>
                             <td class="ps-4">{{ transaction.portfolio.name|default:"Đã xóa" }}</td>
                             <td>
                                 <div class="d-flex align-items-center">
@@ -127,9 +127,6 @@
                 <imlg src="https://cdn-icons-png.faticon.com/512/4076/4076478.png" alt="No transactions" class="img-fluid mb-4" style="max-width: 150px; opacity: 0.7;">
                 <h5>Chưa có giao dịch nào</h5>
                 <p class="text-muted">Bắt đầu giao dịch để theo dõi lịch sử của bạn</p>
-                <!-- <a href="" class="btn btn-primary btn-rounded px-4 mt-2">
-                    <i class="fas fa-plus me-2"></i>Tạo giao dịch mới
-                </a> -->
             </div>
             {% endif %}
         </div>

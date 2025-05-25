@@ -47,6 +47,4 @@ urlpatterns = [
     path('api/get-current-price-symbol/', views.get_current_price_symbol_api, name='get_current_price_symbol_api'),
     path('api/get-price-board/', views.get_price_board_api, name='get_price_board_api'),
     path('api/historical-data/<str:symbol>/', views.get_stock_historical_data, name='get_stock_historical_data'),
-    
-    # path('debug/assets/sync/', views.sync_assets, name='sync_assets'),
 ]
