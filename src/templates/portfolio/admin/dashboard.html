@@ -1,0 +1,406 @@
+{% extends 'portfolio/admin/base.html' %}
+{% load currency_filters %}
+
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}Dashboard Tổng quan{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <!-- Thống kê tổng quan -->
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="stats-card">
+            <div class="stats-icon bg-primary bg-gradient text-white">
+                <i class="fas fa-users"></i>
+            </div>
+            <h3 class="mb-1" id="total-users">{{ total_users }}</h3>
+            <p class="text-muted mb-0">Tổng người dùng</p>
+        </div>
+    </div>
+    
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="stats-card">
+            <div class="stats-icon bg-success bg-gradient text-white">
+                <i class="fas fa-exchange-alt"></i>
+            </div>
+            <h3 class="mb-1" id="total-transactions">{{ total_transactions }}</h3>
+            <p class="text-muted mb-0">Tổng giao dịch</p>
+        </div>
+    </div>
+    
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="stats-card">
+            <div class="stats-icon bg-warning bg-gradient text-white">
+                <i class="fas fa-clock"></i>
+            </div>
+            <h3 class="mb-1" id="pending-withdrawals">{{ pending_withdrawals }}</h3>
+            <p class="text-muted mb-0">Giao dịch chờ duyệt</p>
+        </div>
+    </div>
+    
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="stats-card">
+            <div class="stats-icon bg-info bg-gradient text-white">
+                <i class="fas fa-wallet"></i>
+            </div>
+            <h3 class="mb-1" id="total-wallet-balance">{{ total_wallet_balance|dinh_dang_tien }} VNĐ</h3>
+            <p class="text-muted mb-0">Tổng số dư ví</p>
+        </div>
+    </div>
+</div>
+
+<!-- Nút refresh và thời gian cập nhật -->
+<div class="row mb-3">
+    <div class="col-12 d-flex justify-content-between align-items-center">
+        <h6 class="text-muted mb-0">
+            <small id="admin-last-updated">Dữ liệu được cập nhật tự động mỗi 45 giây</small>
+        </h6>
+        <button id="admin-refresh-btn" class="btn btn-outline-primary btn-sm" title="Cập nhật dữ liệu">
+            <i class="fas fa-sync-alt me-1"></i>Làm mới
+        </button>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Giao dịch chờ duyệt -->
+    <div class="col-lg-8 mb-4">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-clock me-2"></i>Giao dịch rút tiền chờ duyệt
+                </h5>
+                <a href="{% url 'admin_transactions' %}?status=pending" class="btn btn-light btn-sm">
+                    Xem tất cả
+                </a>
+            </div>
+            <div class="card-body">
+                {% if pending_withdrawals_list %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Mã GD</th>
+                                    <th>Người dùng</th>
+                                    <th>Số tiền</th>
+                                    <th>Ngân hàng</th>
+                                    <th>Thời gian</th>
+                                    <th>Hành động</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for transaction in pending_withdrawals_list %}
+                                <tr>
+                                    <td><strong>#{{ transaction.id }}</strong></td>
+                                    <td>
+                                        <div>
+                                            <strong>{{ transaction.user.username }}</strong>
+                                            <br>
+                                            <small class="text-muted">{{ transaction.user.email }}</small>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <strong>{{ transaction.quantity|dinh_dang_tien }} VNĐ</strong>
+                                        {% if transaction.fee > 0 %}
+                                        <small class="text-muted">Phí: {{ transaction.fee|dinh_dang_tien }} VNĐ</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if transaction.bank_account %}
+                                            <div>
+                                                <strong>{{ transaction.bank_account.bank_name }}</strong>
+                                                <br>
+                                                <small class="text-muted">{{ transaction.bank_account.account_number }}</small>
+                                                <br>
+                                                <small class="text-muted">{{ transaction.bank_account.account_name }}</small>
+                                            </div>
+                                        {% else %}
+                                            <span class="text-muted">Không có thông tin</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {{ transaction.transaction_time|date:"d/m/Y H:i" }}
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <form method="post" action="{% url 'admin_transaction_action' transaction.id %}" class="d-inline">
+                                                {% csrf_token %}
+                                                <button type="submit" name="action" value="approve" 
+                                                        class="btn btn-success btn-sm"
+                                                        onclick="return confirm('Xác nhận duyệt giao dịch này?')">
+                                                    <i class="fas fa-check"></i>
+                                                </button>
+                                            </form>
+                                            <form method="post" action="{% url 'admin_transaction_action' transaction.id %}" class="d-inline">
+                                                {% csrf_token %}
+                                                <button type="submit" name="action" value="reject" 
+                                                        class="btn btn-danger btn-sm"
+                                                        onclick="return confirm('Xác nhận hủy giao dịch này? Tiền sẽ được hoàn lại cho người dùng.')">
+                                                    <i class="fas fa-times"></i>
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
+                        <h5>Không có giao dịch chờ duyệt</h5>
+                        <p class="text-muted">Tất cả giao dịch đã được xử lý.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Người dùng hoạt động gần đây -->
+    <div class="col-lg-4 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-users me-2"></i>Người dùng gần đây
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if recent_users %}
+                    {% for user in recent_users %}
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="me-3">
+                            {% if user.profile_picture_url %}
+                                <img src="{{ user.profile_picture_url }}" alt="Avatar" 
+                                     class="rounded-circle" width="40" height="40">
+                            {% else %}
+                                <div class="bg-secondary rounded-circle d-flex align-items-center justify-content-center" 
+                                     style="width: 40px; height: 40px;">
+                                    <i class="fas fa-user text-white"></i>
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="flex-grow-1">
+                            <div>
+                                <strong>{{ user.username }}</strong>
+                                {% if not user.is_active %}
+                                    <span class="badge bg-danger">Vô hiệu hóa</span>
+                                {% endif %}
+                            </div>
+                            <small class="text-muted">
+                                {% if user.last_login %}
+                                    Hoạt động: {{ user.last_login|date:"d/m/Y H:i" }}
+                                {% else %}
+                                    Chưa đăng nhập
+                                {% endif %}
+                            </small>
+                        </div>
+                        <a href="{% url 'admin_user_detail' user.id %}" class="btn btn-outline-primary btn-sm">
+                            <i class="fas fa-eye"></i>
+                        </a>
+                    </div>
+                    {% endfor %}
+                    <div class="text-center">
+                        <a href="{% url 'admin_users' %}" class="btn btn-primary btn-sm">
+                            Xem tất cả người dùng
+                        </a>
+                    </div>
+                {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-users fa-2x text-muted mb-3"></i>
+                        <p class="text-muted">Chưa có người dùng nào.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-bolt me-2"></i>Hành động nhanh
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3 mb-3">
+                        <a href="{% url 'admin_users' %}" class="btn btn-outline-primary w-100">
+                            <i class="fas fa-users fa-2x mb-2 d-block"></i>
+                            Quản lý người dùng
+                        </a>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <a href="{% url 'admin_transactions' %}" class="btn btn-outline-success w-100">
+                            <i class="fas fa-exchange-alt fa-2x mb-2 d-block"></i>
+                            Quản lý giao dịch
+                        </a>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <a href="{% url 'admin_transactions' %}?status=pending" class="btn btn-outline-warning w-100">
+                            <i class="fas fa-clock fa-2x mb-2 d-block"></i>
+                            Giao dịch chờ duyệt
+                        </a>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <a href="{% url 'admin_transactions' %}?type=withdraw" class="btn btn-outline-info w-100">
+                            <i class="fas fa-minus-circle fa-2x mb-2 d-block"></i>
+                            Giao dịch rút tiền
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Admin Dashboard Realtime Update
+    let adminUpdateInterval;
+    let isAdminUpdating = false;
+    
+    // Format số tiền theo kiểu Việt Nam
+    function formatCurrency(amount) {
+        return new Intl.NumberFormat('vi-VN').format(Math.round(amount));
+    }
+    
+    // Cập nhật thống kê admin
+    function updateAdminStats() {
+        if (isAdminUpdating) return;
+        
+        isAdminUpdating = true;
+        
+        fetch('{% url "api_admin_stats" %}')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const adminData = data.data;
+                    
+                    // Cập nhật tổng số người dùng
+                    const totalUsersEl = document.querySelector('#total-users');
+                    if (totalUsersEl) {
+                        updateWithAnimation(totalUsersEl, adminData.total_users);
+                    }
+                    
+                    // Cập nhật tổng giao dịch
+                    const totalTransactionsEl = document.querySelector('#total-transactions');
+                    if (totalTransactionsEl) {
+                        updateWithAnimation(totalTransactionsEl, adminData.total_transactions);
+                    }
+                    
+                    // Cập nhật giao dịch chờ duyệt
+                    const pendingWithdrawalsEl = document.querySelector('#pending-withdrawals');
+                    if (pendingWithdrawalsEl) {
+                        const oldValue = parseInt(pendingWithdrawalsEl.textContent) || 0;
+                        const newValue = adminData.pending_withdrawals;
+                        
+                        updateWithAnimation(pendingWithdrawalsEl, newValue);
+                        
+                        // Highlight nếu có giao dịch chờ duyệt mới
+                        if (newValue > oldValue) {
+                            pendingWithdrawalsEl.closest('.stats-card').style.animation = 'pulse 2s';
+                            setTimeout(() => {
+                                pendingWithdrawalsEl.closest('.stats-card').style.animation = '';
+                            }, 2000);
+                        }
+                    }
+                    
+                    // Cập nhật tổng số dư ví
+                    const totalWalletBalanceEl = document.querySelector('#total-wallet-balance');
+                    if (totalWalletBalanceEl) {
+                        totalWalletBalanceEl.textContent = formatCurrency(adminData.total_wallet_balance) + ' VNĐ';
+                    }
+                    
+                    // Cập nhật thời gian
+                    const lastUpdatedEl = document.querySelector('#admin-last-updated');
+                    if (lastUpdatedEl) {
+                        lastUpdatedEl.textContent = 'Cập nhật lúc: ' + adminData.last_updated;
+                    }
+                    
+                    console.log('Admin stats updated:', adminData.last_updated);
+                } else {
+                    console.error('Admin stats update failed:', data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Admin stats update error:', error);
+            })
+            .finally(() => {
+                isAdminUpdating = false;
+            });
+    }
+    
+    // Helper function để cập nhật với animation
+    function updateWithAnimation(element, newValue) {
+        const oldValue = element.textContent;
+        const newText = newValue.toString();
+        
+        if (oldValue !== newText) {
+            element.style.transition = 'all 0.3s ease';
+            element.style.transform = 'scale(1.1)';
+            element.style.color = '#0d6efd';
+            
+            setTimeout(() => {
+                element.textContent = newText;
+                element.style.transform = 'scale(1)';
+                element.style.color = '';
+            }, 150);
+        }
+    }
+    
+    // Khởi tạo auto-update
+    document.addEventListener('DOMContentLoaded', function() {
+        // Update ngay lập tức
+        updateAdminStats();
+        
+        // Setup interval - cập nhật mỗi 45 giây cho admin
+        adminUpdateInterval = setInterval(updateAdminStats, 45000);
+        
+        // Nút refresh manual
+        const refreshBtn = document.querySelector('#admin-refresh-btn');
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', function() {
+                updateAdminStats();
+                
+                // Hiệu ứng spin
+                const icon = this.querySelector('i');
+                icon.style.animation = 'spin 1s linear';
+                setTimeout(() => {
+                    icon.style.animation = '';
+                }, 1000);
+            });
+        }
+    });
+    
+    // Dừng update khi rời trang
+    window.addEventListener('beforeunload', function() {
+        if (adminUpdateInterval) {
+            clearInterval(adminUpdateInterval);
+        }
+    });
+    
+    // CSS animations
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        .stats-card {
+            transition: all 0.3s ease;
+        }
+        .stats-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+    `;
+    document.head.appendChild(style);
+</script>
+{% endblock %} 

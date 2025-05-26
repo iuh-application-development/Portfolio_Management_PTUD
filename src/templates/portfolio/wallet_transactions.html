@@ -62,18 +62,18 @@
                     <label class="form-label small">Loại giao dịch</label>
                     <select name="type" class="form-select form-select-sm">
                         <option value="">Tất cả loại</option>
-                        {% for value, text in transaction_types %}
-                            <option value="{{ value }}" {% if request.GET.type == value %}selected{% endif %}>{{ text }}</option>
-                        {% endfor %}
+                        <option value="deposit" {% if request.GET.type == 'deposit' %}selected{% endif %}>Nạp tiền</option>
+                        <option value="withdraw" {% if request.GET.type == 'withdraw' %}selected{% endif %}>Rút tiền</option>
                     </select>
                 </div>
                 <div class="col-md-3 col-sm-6">
                     <label class="form-label small">Trạng thái</label>
                     <select name="status" class="form-select form-select-sm">
                         <option value="">Tất cả trạng thái</option>
-                        {% for value, text in status_choices %}
-                            <option value="{{ value }}" {% if request.GET.status == value %}selected{% endif %}>{{ text }}</option>
-                        {% endfor %}
+                        <option value="pending" {% if request.GET.status == 'pending' %}selected{% endif %}>Đang xử lý</option>
+                        <option value="completed" {% if request.GET.status == 'completed' %}selected{% endif %}>Hoàn thành</option>
+                        <option value="failed" {% if request.GET.status == 'failed' %}selected{% endif %}>Thất bại</option>
+                        <option value="cancelled" {% if request.GET.status == 'cancelled' %}selected{% endif %}>Đã hủy</option>
                     </select>
                 </div>
                 <div class="col-md-2 col-sm-6">
@@ -128,11 +128,16 @@
                                     <div class="icon-circle {% if transaction.type == 'deposit' %}bg-success-light text-success{% else %}bg-danger-light text-danger{% endif %} me-2" style="width: 32px; height: 32px;">
                                         <i class="fas {% if transaction.type == 'deposit' %}fa-arrow-down{% else %}fa-arrow-up{% endif %}"></i>
                                     </div>
-                                    <span>{{ transaction.get_type_display }}</span>
+                                    <div>
+                                        <strong>{% if transaction.type == 'deposit' %}Nạp tiền{% else %}Rút tiền{% endif %}</strong>
+                                        {% if transaction.description %}
+                                            <br><small class="text-muted">{{ transaction.description }}</small>
+                                        {% endif %}
+                                    </div>
                                 </div>
                             </td>
                             <td class="fw-medium {% if transaction.type == 'deposit' %}text-success{% else %}text-danger{% endif %}">
-                                {% if transaction.type == 'deposit' %}+{% else %}-{% endif %}{{ transaction.amount|dinh_dang_tien }} VNĐ
+                                {% if transaction.type == 'deposit' %}+{% else %}-{% endif %}{{ transaction.quantity|dinh_dang_tien }} VNĐ
                             </td>
                             <td>
                                 {% if transaction.fee > 0 %}
@@ -143,12 +148,27 @@
                             </td>
                             <td>Chuyển khoản ngân hàng</td>
                             <td>
-                                <span class="badge {% if transaction.status == 'completed' %}bg-success{% elif transaction.status == 'pending' %}bg-warning{% elif transaction.status == 'failed' %}bg-danger{% else %}bg-secondary{% endif %} rounded-pill">
-                                    {{ transaction.get_status_display }}
-                                </span>
+                                {% if transaction.bank_account %}
+                                    {{ transaction.bank_account.bank_name }}
+                                {% else %}
+                                    <span class="text-muted">Hệ thống</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if transaction.status == 'completed' %}
+                                    <span class="badge bg-success rounded-pill">Hoàn thành</span>
+                                {% elif transaction.status == 'pending' %}
+                                    <span class="badge bg-warning rounded-pill">Đang xử lý</span>
+                                {% elif transaction.status == 'failed' %}
+                                    <span class="badge bg-danger rounded-pill">Thất bại</span>
+                                {% elif transaction.status == 'cancelled' %}
+                                    <span class="badge bg-secondary rounded-pill">Đã hủy</span>
+                                {% else %}
+                                    <span class="badge bg-light text-dark rounded-pill">{{ transaction.status }}</span>
+                                {% endif %}
                             </td>
                             <td class="text-end pe-4">
-                                <span class="text-monospace small">{{ transaction.id }}</span>
+                                <span class="text-monospace small">#{{ transaction.id }}</span>
                             </td>
                         </tr>
                         {% endfor %}

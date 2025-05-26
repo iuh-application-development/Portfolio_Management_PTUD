@@ -47,4 +47,19 @@ urlpatterns = [
     path('api/get-current-price-symbol/', views.get_current_price_symbol_api, name='get_current_price_symbol_api'),
     path('api/get-price-board/', views.get_price_board_api, name='get_price_board_api'),
     path('api/historical-data/<str:symbol>/', views.get_stock_historical_data, name='get_stock_historical_data'),
+    
+    # Admin URLs
+    path('admin/', views.admin_login, name='admin_login'),
+    path('admin/dashboard/', views.admin_dashboard, name='admin_dashboard'),
+    path('admin/users/', views.admin_users, name='admin_users'),
+    path('admin/users/<int:user_id>/', views.admin_user_detail, name='admin_user_detail'),
+    path('admin/transactions/', views.admin_transactions, name='admin_transactions'),
+    path('admin/transactions/<int:transaction_id>/action/', views.admin_transaction_action, name='admin_transaction_action'),
+    path('admin/logout/', views.admin_logout, name='admin_logout'),
+    
+    # Realtime API URLs
+    path('api/wallet-data/', views.api_wallet_data, name='api_wallet_data'),
+    path('api/dashboard-data/', views.api_dashboard_data, name='api_dashboard_data'),
+    path('api/market-data/', views.api_market_data, name='api_market_data'),
+    path('api/admin-stats/', views.api_admin_stats, name='api_admin_stats'),
 ]

@@ -1,0 +1,269 @@
+{% extends 'portfolio/admin/base.html' %}
+{% load currency_filters %}
+
+{% block title %}Chi tiết người dùng - {{ user_detail.username }}{% endblock %}
+{% block page_title %}Chi tiết người dùng: {{ user_detail.username }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- Thông tin cơ bản -->
+    <div class="col-lg-4 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-user me-2"></i>Thông tin cơ bản
+                </h5>
+            </div>
+            <div class="card-body text-center">
+                <div class="mb-3">
+                    {% if user_detail.profile_picture_url %}
+                        <img src="{{ user_detail.profile_picture_url }}" alt="Avatar" 
+                             class="rounded-circle" width="100" height="100">
+                    {% elif user_detail.profile_picture %}
+                        <img src="{{ user_detail.profile_picture.url }}" alt="Avatar" 
+                             class="rounded-circle" width="100" height="100">
+                    {% else %}
+                        <div class="bg-secondary rounded-circle d-flex align-items-center justify-content-center mx-auto" 
+                             style="width: 100px; height: 100px;">
+                            <i class="fas fa-user fa-3x text-white"></i>
+                        </div>
+                    {% endif %}
+                </div>
+                
+                <h4>{{ user_detail.username }}</h4>
+                
+                {% if user_detail.first_name or user_detail.last_name %}
+                    <p class="text-muted">{{ user_detail.first_name }} {{ user_detail.last_name }}</p>
+                {% endif %}
+                
+                <div class="mb-3">
+                    {% if user_detail.is_active %}
+                        <span class="badge bg-success fs-6">
+                            <i class="fas fa-check-circle me-1"></i>Hoạt động
+                        </span>
+                    {% else %}
+                        <span class="badge bg-danger fs-6">
+                            <i class="fas fa-times-circle me-1"></i>Vô hiệu hóa
+                        </span>
+                    {% endif %}
+                </div>
+                
+                <form method="post" class="mb-3">
+                    {% csrf_token %}
+                    <button type="submit" name="action" value="toggle_status" 
+                            class="btn {% if user_detail.is_active %}btn-warning{% else %}btn-success{% endif %}"
+                            onclick="return confirm('Xác nhận {% if user_detail.is_active %}vô hiệu hóa{% else %}kích hoạt{% endif %} tài khoản {{ user_detail.username }}?')">
+                        {% if user_detail.is_active %}
+                            <i class="fas fa-ban me-1"></i>Vô hiệu hóa
+                        {% else %}
+                            <i class="fas fa-check me-1"></i>Kích hoạt
+                        {% endif %}
+                    </button>
+                </form>
+                
+                <div class="row text-start">
+                    <div class="col-12 mb-2">
+                        <strong>Email:</strong><br>
+                        <span class="text-muted">{{ user_detail.email }}</span>
+                    </div>
+                    
+                    {% if user_detail.phone %}
+                    <div class="col-12 mb-2">
+                        <strong>Số điện thoại:</strong><br>
+                        <span class="text-muted">{{ user_detail.phone }}</span>
+                    </div>
+                    {% endif %}
+                    
+                    {% if user_detail.address %}
+                    <div class="col-12 mb-2">
+                        <strong>Địa chỉ:</strong><br>
+                        <span class="text-muted">{{ user_detail.address }}</span>
+                    </div>
+                    {% endif %}
+                    
+                    {% if user_detail.gender %}
+                    <div class="col-12 mb-2">
+                        <strong>Giới tính:</strong><br>
+                        <span class="text-muted">
+                            {% if user_detail.gender == 'male' %}Nam
+                            {% elif user_detail.gender == 'female' %}Nữ
+                            {% else %}Khác{% endif %}
+                        </span>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="col-12 mb-2">
+                        <strong>Ngày tạo:</strong><br>
+                        <span class="text-muted">{{ user_detail.date_joined|date:"d/m/Y H:i" }}</span>
+                    </div>
+                    
+                    <div class="col-12">
+                        <strong>Lần đăng nhập cuối:</strong><br>
+                        <span class="text-muted">
+                            {% if user_detail.last_login %}
+                                {{ user_detail.last_login|date:"d/m/Y H:i" }}
+                            {% else %}
+                                Chưa đăng nhập
+                            {% endif %}
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Thông tin ví và danh mục -->
+    <div class="col-lg-8">
+        <!-- Thông tin ví -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-wallet me-2"></i>Thông tin ví điện tử
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if wallet %}
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="stats-card bg-primary bg-gradient text-white">
+                                <h3 class="text-white">{{ wallet.balance|dinh_dang_tien }} VNĐ</h3>
+                                <p class="mb-0 text-white-50">Số dư hiện tại</p>
+                            </div>
+                        </div>
+                    </div>
+                {% else %}
+                    <div class="text-center py-3">
+                        <i class="fas fa-wallet fa-2x text-muted mb-2"></i>
+                        <p class="text-muted">Người dùng chưa có ví điện tử</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Danh mục đầu tư -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-briefcase me-2"></i>Danh mục đầu tư
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if portfolios %}
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Tên danh mục</th>
+                                    <th>Mục tiêu</th>
+                                    <th>Giá trị mục tiêu</th>
+                                    <th>Mức độ rủi ro</th>
+                                    <th>Ngày tạo</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for portfolio in portfolios %}
+                                <tr>
+                                    <td><strong>{{ portfolio.name }}</strong></td>
+                                    <td>{{ portfolio.investment_goal|default:"-" }}</td>
+                                    <td>{{ portfolio.target_value|dinh_dang_tien }} VNĐ</td>
+                                    <td>
+                                        {% if portfolio.risk_tolerance == 'low' %}
+                                            <span class="badge bg-success">Thấp</span>
+                                        {% elif portfolio.risk_tolerance == 'medium' %}
+                                            <span class="badge bg-warning">Trung bình</span>
+                                        {% else %}
+                                            <span class="badge bg-danger">Cao</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ portfolio.created_at|date:"d/m/Y" }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center py-3">
+                        <i class="fas fa-briefcase fa-2x text-muted mb-2"></i>
+                        <p class="text-muted">Người dùng chưa có danh mục đầu tư nào</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Giao dịch gần đây -->
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-history me-2"></i>Giao dịch gần đây
+                </h5>
+                <a href="{% url 'admin_transactions' %}?search={{ user_detail.username }}" 
+                   class="btn btn-outline-primary btn-sm">
+                    Xem tất cả
+                </a>
+            </div>
+            <div class="card-body">
+                {% if recent_transactions %}
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Mã GD</th>
+                                    <th>Loại</th>
+                                    <th>Số tiền</th>
+                                    <th>Trạng thái</th>
+                                    <th>Thời gian</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for transaction in recent_transactions %}
+                                <tr>
+                                    <td><strong>#{{ transaction.id }}</strong></td>
+                                    <td>
+                                        {% if transaction.type == 'deposit' %}
+                                            <span class="badge bg-success">
+                                                <i class="fas fa-plus-circle me-1"></i>Nạp tiền
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-info">
+                                                <i class="fas fa-minus-circle me-1"></i>Rút tiền
+                                            </span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <strong>{{ transaction.quantity|dinh_dang_tien }} VNĐ</strong>
+                                        {% if transaction.fee > 0 %}
+                                        <br><small class="text-muted">Phí: {{ transaction.fee|dinh_dang_tien }} VNĐ</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if transaction.status == 'pending' %}
+                                            <span class="status-badge status-pending">Đang xử lý</span>
+                                        {% elif transaction.status == 'completed' %}
+                                            <span class="status-badge status-completed">Hoàn thành</span>
+                                        {% elif transaction.status == 'cancelled' %}
+                                            <span class="status-badge status-cancelled">Đã hủy</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ transaction.transaction_time|date:"d/m/Y H:i" }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center py-3">
+                        <i class="fas fa-history fa-2x text-muted mb-2"></i>
+                        <p class="text-muted">Người dùng chưa có giao dịch nào</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="mt-4">
+    <a href="{% url 'admin_users' %}" class="btn btn-secondary">
+        <i class="fas fa-arrow-left me-1"></i>Quay lại danh sách
+    </a>
+</div>
+{% endblock %} 

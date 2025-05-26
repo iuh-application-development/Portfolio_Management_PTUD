@@ -10,8 +10,12 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from django.urls import reverse
-from django.conf import settings
 from rest_framework import status
+
+import uuid
+import requests # Thêm import này
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from .models import Portfolio, PortfolioSymbol, Assets, User, Wallet, StockTransaction, BankAccount, BankTransaction
 from .vnstock_services import (
@@ -19,16 +23,14 @@ from .vnstock_services import (
 )
 from .utils import get_ai_response, get_auth0_user_profile, generate_qr_code, check_paid
 
-import uuid
-import requests
 from decimal import Decimal, InvalidOperation
-from urllib.parse import quote_plus, urlencode
+from .utils import get_ai_response, get_auth0_user_profile
 import json
 import pandas as pd
-from datetime import datetime, timedelta
 # from authlib.integrations.django_client import OAuth  # Comment out this import
 
-
+# Thêm import forms
+from .forms import WithdrawForm
 
 # Comment out OAuth setup temporarily
 """
@@ -242,11 +244,11 @@ def dashboard(request):
     number_of_portfolio = portfolios.count()
     # print('='*100)
     # print(portfolios)
+    total_stocks_value = 0
+    total_profit_loss = 0
     if list_stock:
         current_price_symbol = get_current_price(list_stock)
         # current_price_symbol = get_current_price(list_stock).set_index('symbol')['ref_price'].to_dict()
-        total_assets_value = 0
-        total_profit_loss = 0
         for portfolio in portfolios:
             portfolio_symbol = PortfolioSymbol.objects.filter(portfolio=portfolio)
             symbol_quantity_df = pd.DataFrame(portfolio_symbol.values_list('symbol', 'quantity', 'average_price'), columns=['symbol', 'quantity', 'average_price'])
@@ -255,10 +257,11 @@ def dashboard(request):
             # print(total_df)
             
             portfolio.portfolio_value = sum(total_df['quantity'] * total_df['ref_price'])
+            print(portfolio.portfolio_value)
             portfolio.profit_loss_percentage = sum((total_df['ref_price'] - total_df['average_price']) / total_df['average_price'] * 100)
-            total_assets_value += portfolio.portfolio_value
+            total_stocks_value += portfolio.portfolio_value  # Cộng dồn giá trị cổ phiếu
             total_profit_loss += ((total_df['ref_price'] - total_df['average_price']) * total_df['quantity']).sum()
-        total_profit_loss_percentage = round(total_profit_loss / total_assets_value * 100, 2) if total_assets_value != 0 else 0
+        total_profit_loss_percentage = round(total_profit_loss / total_stocks_value * 100, 2) if total_stocks_value != 0 else 0
     else:
         total_profit_loss = 0
         total_profit_loss_percentage = 0
@@ -272,7 +275,7 @@ def dashboard(request):
         transaction.company_name = list_company_name_recent_transactions_df[list_company_name_recent_transactions_df.ticker.isin([transaction.symbol])].iloc[0, 1]
 
     context = {
-        "total_assets_value": total_assets_value,
+        "total_stocks_value": total_stocks_value,
         "total_profit_loss_percentage": total_profit_loss_percentage,
         "user_balance": user_balance,
         "number_of_portfolio": number_of_portfolio,
@@ -759,6 +762,18 @@ def buy_stock(request, portfolio_id):
                 # Cập nhật số dư ví
                 Wallet.objects.filter(user=user).update(balance=F('balance') - total_buy_price)
 
+                # Tạo giao dịch ví để ghi lại lịch sử rút tiền mua cổ phiếu
+                BankTransaction.objects.create(
+                    user=user,
+                    type='withdraw',
+                    quantity=Decimal(total_buy_price),
+                    fee=Decimal('0'),
+                    status='completed',
+                    description=f'Rút tiền mua cổ phiếu {symbol} - {quantity} cổ phiếu x {price:,.0f} VNĐ',
+                    transaction_time=timezone.now(),
+                    completed_at=timezone.now()
+                )
+
                 assets, created_assets = Assets.objects.get_or_create(
                     user=user,
                     symbol=symbol,
@@ -891,6 +906,18 @@ def sell_stock(request, portfolio_id):
                 user_wallet = Wallet.objects.get(user=user)
                 user_wallet.refresh_from_db()
                 
+                # Tạo giao dịch ví để ghi lại lịch sử nạp tiền bán cổ phiếu
+                BankTransaction.objects.create(
+                    user=user,
+                    type='deposit',
+                    quantity=Decimal(total_sell_price),
+                    fee=Decimal('0'),
+                    status='completed',
+                    description=f'Nạp tiền bán cổ phiếu {symbol} - {quantity} cổ phiếu x {price:,.0f} VNĐ',
+                    transaction_time=timezone.now(),
+                    completed_at=timezone.now()
+                )
+                
                 messages.success(request, f'Đã bán thành công {quantity} cổ phiếu {symbol} với giá {price:,} VND')
                 return redirect('portfolio_detail', pk=portfolio_id)
                 
@@ -954,10 +981,15 @@ def wallet(request):
     # user = User.objects.get(pk=1)
     user_wallet = Wallet.objects.get(user=user)
     user_balance = user_wallet.balance
-    user_bank_accounts = BankAccount.objects.filter(user=user).order_by('-is_default', '-created_at')[:5]
+    user_bank_accounts = BankAccount.objects.filter(user=user).order_by('-is_default', '-created_at')
+    
+    # Lấy 5 giao dịch gần nhất để hiển thị trên trang ví
+    recent_transactions = BankTransaction.objects.filter(user=user).order_by('-transaction_time')[:5]
+    
     context = {
         "user_balance": user_balance,
         "user_bank_accounts": user_bank_accounts,
+        "recent_transactions": recent_transactions,
     }
     
     return render(request, 'portfolio/wallet.html', context)
@@ -1133,15 +1165,110 @@ def deposit_money(request):
 #     # Just show success message and redirect
 #     return redirect('wallet')
 
-# @login_required
+@login_required
 def withdraw_money(request):
     user = request.user
-    user_balance = Wallet.objects.get(user=user).balance
-    user_bank_accounts = BankAccount.objects.filter(user=user).order_by('-is_default', '-created_at')
+    try:
+        wallet = Wallet.objects.get(user=user)
+    except Wallet.DoesNotExist:
+        wallet = Wallet.objects.create(user=user, balance=0)
+        
+    bank_accounts = BankAccount.objects.filter(user=user).order_by('-is_default', '-created_at')
+    
+    if request.method == 'POST':
+        form = WithdrawForm(user, request.POST)
+        
+        if form.is_valid():
+            try:
+                with transaction.atomic():
+                    amount = form.cleaned_data['amount']
+                    bank_account = form.cleaned_data.get('bank_account')
+                    description = form.cleaned_data.get('description', '')
+                    
+                    # Nếu không chọn tài khoản có sẵn, tạo tài khoản mới
+                    if not bank_account:
+                        new_bank_name = form.cleaned_data['new_bank_name']
+                        new_other_bank_name = form.cleaned_data.get('new_other_bank_name')
+                        new_account_name = form.cleaned_data['new_account_name']
+                        new_account_number = form.cleaned_data['new_account_number']
+                        new_branch = form.cleaned_data.get('new_branch', '')
+                        new_is_default = form.cleaned_data.get('new_is_default', False)
+                        
+                        # Xử lý tên ngân hàng
+                        final_bank_name = new_bank_name
+                        if new_bank_name == "Ngân hàng khác" and new_other_bank_name:
+                            final_bank_name = new_other_bank_name
+                        
+                        # Nếu đánh dấu làm mặc định hoặc là tài khoản đầu tiên
+                        if new_is_default or not bank_accounts.exists():
+                            BankAccount.objects.filter(user=user).update(is_default=False)
+                            new_is_default = True
+                        
+                        # Tạo tài khoản ngân hàng mới
+                        bank_account = BankAccount.objects.create(
+                            user=user,
+                            bank_name=final_bank_name,
+                            account_name=new_account_name,
+                            account_number=new_account_number,
+                            branch=new_branch,
+                            is_default=new_is_default
+                        )
+                    
+                    # Tính phí rút tiền (0.5%, tối thiểu 10,000, tối đa 50,000)
+                    fee = max(10000, min(50000, amount * Decimal('0.005')))
+                    
+                    # Kiểm tra số dư sau khi trừ phí
+                    total_deduct = amount + fee
+                    if wallet.balance < total_deduct:
+                        messages.error(request, f'Số dư không đủ! Cần {total_deduct:,.0f} VNĐ (bao gồm phí {fee:,.0f} VNĐ)')
+                        return render(request, 'portfolio/withdraw.html', {
+                            'form': form,
+                            'wallet': wallet,
+                            'bank_accounts': bank_accounts
+                        })
+                    
+                    # Trừ tiền trước (giao dịch vào trạng thái pending)
+                    wallet.balance -= total_deduct
+                    wallet.save()
+                    
+                    # Tạo giao dịch rút tiền
+                    bank_transaction = BankTransaction.objects.create(
+                        user=user,
+                        bank_account=bank_account,
+                        type='withdraw',
+                        quantity=amount,
+                        fee=fee,
+                        status='pending',
+                        description=description or f'Rút tiền về {bank_account.bank_name} - {bank_account.account_number}'
+                    )
+                    
+                    messages.success(
+                        request, 
+                        f'Yêu cầu rút tiền {amount:,.0f} VNĐ đã được tạo thành công! '
+                        f'Giao dịch đang được xử lý. Mã giao dịch: #{bank_transaction.id}'
+                    )
+                    return redirect('wallet_transactions')
+                    
+            except Exception as e:
+                messages.error(request, f'Có lỗi xảy ra khi xử lý giao dịch: {str(e)}')
+        else:
+            # Form không hợp lệ, hiển thị lỗi
+            for field, errors in form.errors.items():
+                for error in errors:
+                    if field == '__all__':
+                        messages.error(request, error)
+                    else:
+                        messages.error(request, f'{form.fields[field].label}: {error}')
+    else:
+        form = WithdrawForm(user)
+    
     context = {
-        "user_balance": user_balance,
-        "user_bank_accounts" : user_bank_accounts,
+        'form': form,
+        'wallet': wallet,
+        'bank_accounts': bank_accounts,
+        'title': 'Rút tiền'
     }
+    
     return render(request, 'portfolio/withdraw.html', context)
 
 @login_required
@@ -1494,3 +1621,464 @@ def get_stock_historical_data(request, symbol):
         print(f"Error getting data for {symbol}: {str(e)}") # Debug log
         print(f"Data structure: {historical_data.head()}") if 'historical_data' in locals() else print("No data fetched") # Debug log để xem cấu trúc dữ liệu
         return JsonResponse({'error': str(e)}, status=500)
+
+# ============ ADMIN VIEWS =======
+from django.contrib.auth import authenticate, login as auth_login
+from django.core.paginator import Paginator
+
+def admin_login(request):
+    """Trang đăng nhập admin"""
+    if request.method == 'POST':
+        username = request.POST.get('username')
+        password = request.POST.get('password')
+        
+        if username == 'admin' and password == 'admin':
+            # Tạo hoặc lấy user admin
+            admin_user, created = User.objects.get_or_create(
+                username='admin',
+                defaults={
+                    'email': 'admin@astrolux.com',
+                    'is_staff': True,
+                    'is_superuser': True,
+                    'first_name': 'Admin',
+                    'last_name': 'System'
+                }
+            )
+            
+            if created:
+                admin_user.set_password('admin')
+                admin_user.save()
+            
+            auth_login(request, admin_user)
+            request.session['is_admin'] = True
+            return redirect('admin_dashboard')
+        else:
+            messages.error(request, 'Tên đăng nhập hoặc mật khẩu không đúng!')
+    
+    return render(request, 'portfolio/admin/login.html')
+
+def admin_required(view_func):
+    """Decorator kiểm tra quyền admin"""
+    def _wrapped_view(request, *args, **kwargs):
+        if not request.user.is_authenticated or not request.session.get('is_admin'):
+            return redirect('admin_login')
+        return view_func(request, *args, **kwargs)
+    return _wrapped_view
+
+@admin_required
+def admin_dashboard(request):
+    """Trang chính admin"""
+    # Thống kê tổng quan
+    total_users = User.objects.exclude(username='admin').count()
+    total_transactions = BankTransaction.objects.count()
+    pending_withdrawals = BankTransaction.objects.filter(type='withdraw', status='pending').count()
+    total_wallet_balance = Wallet.objects.aggregate(Sum('balance'))['balance__sum'] or 0
+    
+    # Giao dịch rút tiền chờ duyệt
+    pending_withdrawals_list = BankTransaction.objects.filter(
+        type='withdraw', 
+        status='pending'
+    ).order_by('-transaction_time')[:5]
+    
+    # Người dùng hoạt động gần đây
+    recent_users = User.objects.exclude(username='admin').order_by('-last_login')[:5]
+    
+    context = {
+        'total_users': total_users,
+        'total_transactions': total_transactions,
+        'pending_withdrawals': pending_withdrawals,
+        'total_wallet_balance': total_wallet_balance,
+        'pending_withdrawals_list': pending_withdrawals_list,
+        'recent_users': recent_users,
+    }
+    
+    return render(request, 'portfolio/admin/dashboard.html', context)
+
+@admin_required
+def admin_users(request):
+    """Quản lý người dùng"""
+    search = request.GET.get('search', '')
+    status_filter = request.GET.get('status', 'all')
+    
+    users = User.objects.exclude(username='admin')
+    
+    if search:
+        users = users.filter(
+            Q(username__icontains=search) |
+            Q(email__icontains=search) |
+            Q(first_name__icontains=search) |
+            Q(last_name__icontains=search)
+        )
+    
+    if status_filter == 'active':
+        users = users.filter(is_active=True)
+    elif status_filter == 'inactive':
+        users = users.filter(is_active=False)
+    
+    # Pagination
+    paginator = Paginator(users, 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    context = {
+        'page_obj': page_obj,
+        'search': search,
+        'status_filter': status_filter,
+    }
+    
+    return render(request, 'portfolio/admin/users.html', context)
+
+@admin_required
+def admin_user_detail(request, user_id):
+    """Chi tiết người dùng"""
+    user = get_object_or_404(User, id=user_id)
+    
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        
+        if action == 'toggle_status':
+            user.is_active = not user.is_active
+            user.save()
+            status = 'kích hoạt' if user.is_active else 'vô hiệu hóa'
+            messages.success(request, f'Đã {status} tài khoản của {user.username}')
+        
+        return redirect('admin_user_detail', user_id=user_id)
+    
+    # Lấy thông tin ví
+    try:
+        wallet = Wallet.objects.get(user=user)
+    except Wallet.DoesNotExist:
+        wallet = None
+    
+    # Lấy giao dịch gần đây
+    recent_transactions = BankTransaction.objects.filter(user=user).order_by('-transaction_time')[:10]
+    
+    # Lấy danh mục đầu tư
+    portfolios = Portfolio.objects.filter(user=user)
+    
+    context = {
+        'user_detail': user,
+        'wallet': wallet,
+        'recent_transactions': recent_transactions,
+        'portfolios': portfolios,
+    }
+    
+    return render(request, 'portfolio/admin/user_detail.html', context)
+
+@admin_required
+def admin_transactions(request):
+    """Quản lý giao dịch"""
+    type_filter = request.GET.get('type', 'all')
+    status_filter = request.GET.get('status', 'all')
+    search = request.GET.get('search', '')
+    
+    transactions = BankTransaction.objects.all()
+    
+    if type_filter != 'all':
+        transactions = transactions.filter(type=type_filter)
+    
+    if status_filter != 'all':
+        transactions = transactions.filter(status=status_filter)
+    
+    if search:
+        transactions = transactions.filter(
+            Q(user__username__icontains=search) |
+            Q(user__email__icontains=search) |
+            Q(bank_account__account_number__icontains=search) |
+            Q(description__icontains=search)
+        )
+    
+    transactions = transactions.order_by('-transaction_time')
+    
+    # Pagination
+    paginator = Paginator(transactions, 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    context = {
+        'page_obj': page_obj,
+        'type_filter': type_filter,
+        'status_filter': status_filter,
+        'search': search,
+    }
+    
+    return render(request, 'portfolio/admin/transactions.html', context)
+
+@admin_required
+def admin_transaction_action(request, transaction_id):
+    """Xử lý hành động với giao dịch (duyệt/hủy)"""
+    transaction_obj = get_object_or_404(BankTransaction, id=transaction_id)
+    
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        
+        if action == 'approve' and transaction_obj.status == 'pending':
+            # Duyệt giao dịch
+            transaction_obj.status = 'completed'
+            transaction_obj.completed_at = timezone.now()
+            transaction_obj.save()
+            
+            messages.success(request, f'Đã duyệt giao dịch #{transaction_obj.id}')
+            
+        elif action == 'reject' and transaction_obj.status == 'pending':
+            # Hủy giao dịch và hoàn tiền
+            if transaction_obj.type == 'withdraw':
+                # Hoàn tiền vào ví
+                wallet = Wallet.objects.get(user=transaction_obj.user)
+                refund_amount = transaction_obj.quantity + transaction_obj.fee
+                wallet.balance += refund_amount
+                wallet.save()
+                
+                transaction_obj.status = 'cancelled'
+                transaction_obj.save()
+                
+                messages.success(
+                    request, 
+                    f'Đã hủy giao dịch #{transaction_obj.id} và hoàn tiền {refund_amount:,.0f} VNĐ cho người dùng'
+                )
+            else:
+                transaction_obj.status = 'cancelled'
+                transaction_obj.save()
+                messages.success(request, f'Đã hủy giao dịch #{transaction_obj.id}')
+    
+    return redirect('admin_transactions')
+
+@admin_required
+def admin_logout(request):
+    """Đăng xuất admin"""
+    request.session.pop('admin_logged_in', None)
+    messages.success(request, 'Đã đăng xuất thành công!')
+    return redirect('admin_login')
+
+# ===== REALTIME API ENDPOINTS =====
+
+@login_required
+def api_wallet_data(request):
+    """API trả về dữ liệu ví realtime"""
+    try:
+        user = request.user
+        wallet = Wallet.objects.get(user=user)
+        
+        # Lấy giao dịch gần nhất
+        recent_transactions = BankTransaction.objects.filter(user=user).order_by('-transaction_time')[:5]
+        
+        # Tính tổng nạp/rút trong 30 ngày
+        from django.utils import timezone
+        from datetime import timedelta
+        thirty_days_ago = timezone.now() - timedelta(days=30)
+        
+        monthly_deposit = BankTransaction.objects.filter(
+            user=user, 
+            type='deposit', 
+            status='completed',
+            transaction_time__gte=thirty_days_ago
+        ).aggregate(total=Sum('quantity'))['total'] or 0
+        
+        monthly_withdraw = BankTransaction.objects.filter(
+            user=user, 
+            type='withdraw', 
+            status='completed',
+            transaction_time__gte=thirty_days_ago
+        ).aggregate(total=Sum('quantity'))['total'] or 0
+        
+        total_deposit = BankTransaction.objects.filter(
+            user=user, 
+            type='deposit', 
+            status='completed'
+        ).aggregate(total=Sum('quantity'))['total'] or 0
+        
+        total_withdraw = BankTransaction.objects.filter(
+            user=user, 
+            type='withdraw', 
+            status='completed'
+        ).aggregate(total=Sum('quantity'))['total'] or 0
+        
+        # Format dữ liệu giao dịch
+        transactions_data = []
+        for trans in recent_transactions:
+            transactions_data.append({
+                'id': trans.id,
+                'type': trans.type,
+                'type_display': 'Nạp tiền' if trans.type == 'deposit' else 'Rút tiền',
+                'quantity': float(trans.quantity),
+                'status': trans.status,
+                'status_display': {
+                    'completed': 'Hoàn thành',
+                    'pending': 'Đang xử lý',
+                    'cancelled': 'Đã hủy',
+                    'failed': 'Thất bại'
+                }.get(trans.status, trans.status),
+                'description': trans.description or '',
+                'bank_name': trans.bank_account.bank_name if trans.bank_account else 'Hệ thống',
+                'transaction_time': trans.transaction_time.strftime('%d/%m/%Y %H:%M'),
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'data': {
+                'balance': float(wallet.balance),
+                'monthly_deposit': float(monthly_deposit),
+                'monthly_withdraw': float(monthly_withdraw), 
+                'total_deposit': float(total_deposit),
+                'total_withdraw': float(total_withdraw),
+                'recent_transactions': transactions_data,
+                'last_updated': timezone.now().strftime('%H:%M:%S %d/%m/%Y')
+            }
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        })
+
+@login_required  
+def api_dashboard_data(request):
+    """API trả về dữ liệu dashboard realtime"""
+    try:
+        user = request.user
+        
+        # Lấy dữ liệu ví
+        try:
+            wallet = Wallet.objects.get(user=user)
+            wallet_balance = float(wallet.balance)
+        except Wallet.DoesNotExist:
+            wallet_balance = 0
+            
+        # Lấy danh mục và tài sản
+        portfolios = Portfolio.objects.filter(user=user)
+        
+        # Tính tổng giá trị cổ phiếu
+        total_stocks_value = 0
+        total_profit_loss = 0
+        
+        if portfolios.exists():
+            # Lấy tất cả symbol từ các danh mục
+            portfolio_symbols = PortfolioSymbol.objects.filter(portfolio__in=portfolios)
+            
+            if portfolio_symbols.exists():
+                # Lấy danh sách symbol
+                symbols = [ps.symbol for ps in portfolio_symbols]
+                
+                # Giả lập giá hiện tại (thực tế sẽ lấy từ API thị trường)
+                for ps in portfolio_symbols:
+                    current_price = 25000  # Giả lập giá
+                    current_value = ps.quantity * current_price
+                    cost_value = ps.quantity * ps.average_price
+                    
+                    total_stocks_value += current_value
+                    total_profit_loss += (current_value - cost_value)
+        
+        # Tính % lãi/lỗ
+        profit_loss_percentage = 0
+        if total_stocks_value > 0:
+            cost_value = total_stocks_value - total_profit_loss
+            if cost_value > 0:
+                profit_loss_percentage = (total_profit_loss / cost_value) * 100
+        
+        # Đếm số cổ phiếu đang nắm
+        number_of_stocks = portfolio_symbols.count() if 'portfolio_symbols' in locals() else 0
+
+        return JsonResponse({
+            'success': True,
+            'data': {
+                'wallet_balance': wallet_balance,
+                'total_stocks_value': total_stocks_value,
+                'total_profit_loss': total_profit_loss,
+                'profit_loss_percentage': profit_loss_percentage,
+                'number_of_stocks': number_of_stocks,
+                'total_assets': total_stocks_value,  # Chỉ tính cổ phiếu
+                'last_updated': datetime.now(ZoneInfo("Asia/Ho_Chi_Minh")).strftime('%H:%M:%S %d/%m/%Y')
+            }
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        })
+
+@login_required
+def api_market_data(request):
+    """API trả về dữ liệu thị trường realtime"""
+    try:
+        # Lấy dữ liệu thị trường (giả lập)
+        import random
+        
+        # Giả lập một số mã cổ phiếu phổ biến
+        stock_symbols = ['VCB', 'VIC', 'VHM', 'HPG', 'TCB', 'GAS', 'CTG', 'BID', 'MWG', 'FPT']
+        market_data = []
+        
+        for symbol in stock_symbols:
+            # Giả lập dữ liệu thị trường
+            base_price = random.randint(15000, 80000)
+            change_percent = random.uniform(-5, 5)
+            price = base_price * (1 + change_percent / 100)
+            volume = random.randint(100000, 5000000)
+            
+            market_data.append({
+                'symbol': symbol,
+                'price': round(price, 0),
+                'change_percent': round(change_percent, 2),
+                'volume': volume,
+                'trend': 'up' if change_percent > 0 else 'down' if change_percent < 0 else 'flat'
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'data': {
+                'stocks': market_data,
+                'last_updated': datetime.now(ZoneInfo("Asia/Ho_Chi_Minh")).strftime('%H:%M:%S %d/%m/%Y')
+            }
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        })
+
+@admin_required
+def api_admin_stats(request):
+    """API trả về thống kê admin realtime"""
+    try:
+        from django.contrib.auth.models import User
+        
+        # Thống kê cơ bản
+        total_users = User.objects.count()
+        active_users = User.objects.filter(is_active=True).count()
+        total_transactions = BankTransaction.objects.count()
+        pending_withdrawals = BankTransaction.objects.filter(type='withdraw', status='pending').count()
+        
+        # Tổng số dư ví
+        total_wallet_balance = Wallet.objects.aggregate(
+            total=Sum('balance')
+        )['total'] or 0
+        
+        # Giao dịch hôm nay
+        from django.utils import timezone
+        today = timezone.now().date()
+        today_transactions = BankTransaction.objects.filter(
+            transaction_time__date=today
+        ).count()
+        
+        # Người dùng đăng ký hôm nay
+        today_users = User.objects.filter(
+            date_joined__date=today
+        ).count()
+        
+        return JsonResponse({
+            'success': True,
+            'data': {
+                'total_users': total_users,
+                'active_users': active_users,
+                'total_transactions': total_transactions,
+                'pending_withdrawals': pending_withdrawals,
+                'total_wallet_balance': float(total_wallet_balance),
+                'today_transactions': today_transactions,
+                'today_users': today_users,
+                'last_updated': timezone.now().strftime('%H:%M:%S %d/%m/%Y')
+            }
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        })

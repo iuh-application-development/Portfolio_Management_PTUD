@@ -41,6 +41,9 @@
             <h2 class="fw-bold mb-0">Ví điện tử</h2>
         </div>
         <div class="d-flex gap-2">
+            <button id="wallet-refresh-btn" class="btn btn-outline-secondary btn-rounded me-2" title="Cập nhật dữ liệu">
+                <i class="fas fa-sync-alt"></i>
+            </button>
             <a href="{% url 'deposit_money' %}" class="btn btn-success btn-rounded" data-aos="fade-left" data-aos-delay="100">
                 <i class="fas fa-plus-circle me-2"></i>Nạp tiền
             </a>
@@ -61,7 +64,7 @@
                         </div>
                         <h5 class="mb-0">Số dư hiện tại</h5>
                     </div>
-                    <h2 class="display-6 fw-bold mb-0">{{ user_balance|default:0|dinh_dang_tien }} VNĐ</h2>
+                    <h2 class="display-6 fw-bold mb-0" id="current-balance">{{ user_balance|default:0|dinh_dang_tien }} VNĐ</h2>
                     <p class="mt-2 mb-0 opacity-75">Cập nhật lúc: {{ wallet.last_updated|date:"H:i d/m/Y"|default:"--" }}</p>
                 </div>
             </div>
@@ -76,8 +79,8 @@
                         </div>
                         <h5 class="mb-0">Tổng nạp</h5>
                     </div>
-                    <h2 class="display-6 fw-bold mb-0">{{ total_deposit|default:0|dinh_dang_tien }} VNĐ</h2>
-                    <p class="text-muted mt-2 mb-0">Trong 30 ngày qua: {{ monthly_deposit|default:0|dinh_dang_tien }} VNĐ</p>
+                    <h2 class="display-6 fw-bold mb-0" id="total-deposit">{{ total_deposit|default:0|dinh_dang_tien }} VNĐ</h2>
+                    <p class="text-muted mt-2 mb-0">Trong 30 ngày qua: <span id="monthly-deposit">{{ monthly_deposit|default:0|dinh_dang_tien }} VNĐ</span></p>
                 </div>
             </div>
         </div>
@@ -91,8 +94,8 @@
                         </div>
                         <h5 class="mb-0">Tổng rút</h5>
                     </div>
-                    <h2 class="display-6 fw-bold mb-0">{{ total_withdraw|default:0|dinh_dang_tien }} VNĐ</h2>
-                    <p class="text-muted mt-2 mb-0">Trong 30 ngày qua: {{ monthly_withdraw|default:0|dinh_dang_tien }} VNĐ</p>
+                    <h2 class="display-6 fw-bold mb-0" id="total-withdraw">{{ total_withdraw|default:0|dinh_dang_tien }} VNĐ</h2>
+                    <p class="text-muted mt-2 mb-0">Trong 30 ngày qua: <span id="monthly-withdraw">{{ monthly_withdraw|default:0|dinh_dang_tien }} VNĐ</span></p>
                 </div>
             </div>
         </div>
@@ -211,7 +214,7 @@
             </div>
         </div>
         <div class="card-body p-0">
-            {% if transactions %}
+            {% if recent_transactions %}
             <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0">
                     <thead class="bg-light">
@@ -224,29 +227,48 @@
                             <th class="text-end pe-4">Mã giao dịch</th>
                         </tr>
                     </thead>
-                    <tbody>
-                        {% for transaction in transactions %}
+                    <tbody id="recent-transactions-tbody">
+                        {% for transaction in recent_transactions %}
                         <tr>
-                            <td class="ps-4">{{ transaction.created_at|date:"d/m/Y H:i" }}</td>
+                            <td class="ps-4">{{ transaction.transaction_time|date:"d/m/Y H:i" }}</td>
                             <td>
                                 <div class="d-flex align-items-center">
                                     <div class="icon-circle {% if transaction.type == 'deposit' %}bg-success-light text-success{% else %}bg-danger-light text-danger{% endif %} me-2" style="width: 32px; height: 32px;">
                                         <i class="fas {% if transaction.type == 'deposit' %}fa-arrow-down{% else %}fa-arrow-up{% endif %}"></i>
                                     </div>
-                                    <span>{{ transaction.get_type_display }}</span>
+                                    <div>
+                                        <strong>{% if transaction.type == 'deposit' %}Nạp tiền{% else %}Rút tiền{% endif %}</strong>
+                                        {% if transaction.description %}
+                                            <br><small class="text-muted">{{ transaction.description|truncatechars:50 }}</small>
+                                        {% endif %}
+                                    </div>
                                 </div>
                             </td>
                             <td class="fw-medium {% if transaction.type == 'deposit' %}text-success{% else %}text-danger{% endif %}">
-                                {% if transaction.type == 'deposit' %}+{% else %}-{% endif %}{{ transaction.amount|dinh_dang_tien }} VNĐ
+                                {% if transaction.type == 'deposit' %}+{% else %}-{% endif %}{{ transaction.quantity|dinh_dang_tien }} VNĐ
                             </td>
-                            <td>{{ transaction.get_payment_method_display }}</td>
                             <td>
-                                <span class="badge {% if transaction.status == 'completed' %}bg-success{% elif transaction.status == 'pending' %}bg-warning{% else %}bg-danger{% endif %} rounded-pill">
-                                    {{ transaction.get_status_display }}
-                                </span>
+                                {% if transaction.bank_account %}
+                                    {{ transaction.bank_account.bank_name }}
+                                {% else %}
+                                    <span class="text-muted">Hệ thống</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if transaction.status == 'completed' %}
+                                    <span class="badge bg-success rounded-pill">Hoàn thành</span>
+                                {% elif transaction.status == 'pending' %}
+                                    <span class="badge bg-warning rounded-pill">Đang xử lý</span>
+                                {% elif transaction.status == 'failed' %}
+                                    <span class="badge bg-danger rounded-pill">Thất bại</span>
+                                {% elif transaction.status == 'cancelled' %}
+                                    <span class="badge bg-secondary rounded-pill">Đã hủy</span>
+                                {% else %}
+                                    <span class="badge bg-light text-dark rounded-pill">{{ transaction.status }}</span>
+                                {% endif %}
                             </td>
                             <td class="text-end pe-4">
-                                <span class="text-monospace small">{{ transaction.transaction_id }}</span>
+                                <span class="text-monospace small">#{{ transaction.id }}</span>
                             </td>
                         </tr>
                         {% endfor %}
@@ -254,35 +276,12 @@
                 </table>
             </div>
             
-            {% if transactions.has_other_pages %}
-            <div class="d-flex justify-content-center py-3 border-top">
-                <nav aria-label="Page navigation">
-                    <ul class="pagination mb-0">
-                        {% if transactions.has_previous %}
-                        <li class="page-item">
-                            <a class="page-link" href="?page={{ transactions.previous_page_number }}" aria-label="Previous">
-                                <span aria-hidden="true">&laquo;</span>
-                            </a>
-                        </li>
-                        {% endif %}
-                        
-                        {% for i in transactions.paginator.page_range %}
-                        <li class="page-item {% if transactions.number == i %}active{% endif %}">
-                            <a class="page-link" href="?page={{ i }}">{{ i }}</a>
-                        </li>
-                        {% endfor %}
-                        
-                        {% if transactions.has_next %}
-                        <li class="page-item">
-                            <a class="page-link" href="?page={{ transactions.next_page_number }}" aria-label="Next">
-                                <span aria-hidden="true">&raquo;</span>
-                            </a>
-                        </li>
-                        {% endif %}
-                    </ul>
-                </nav>
+            <!-- Thời gian cập nhật -->
+            <div class="p-3 text-center border-top">
+                <small id="wallet-last-updated" class="text-muted">
+                    Dữ liệu được cập nhật tự động mỗi 20 giây
+                </small>
             </div>
-            {% endif %}
             
             {% else %}
             <div class="text-center py-5">
@@ -293,10 +292,188 @@
                     <a href="{% url 'deposit_money' %}" class="btn btn-success btn-rounded mx-2">
                         <i class="fas fa-plus-circle me-2"></i>Nạp tiền
                     </a>
+                    <a href="{% url 'withdraw_money' %}" class="btn btn-primary btn-rounded mx-2">
+                        <i class="fas fa-minus-circle me-2"></i>Rút tiền
+                    </a>
                 </div>
             </div>
             {% endif %}
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Realtime Wallet Data Update
+    let walletUpdateInterval;
+    let isWalletUpdating = false;
+    
+    // Format số tiền theo kiểu Việt Nam
+    function formatCurrency(amount) {
+        return new Intl.NumberFormat('vi-VN').format(Math.round(amount));
+    }
+    
+    // Cập nhật dữ liệu ví
+    function updateWalletData() {
+        if (isWalletUpdating) return;
+        
+        isWalletUpdating = true;
+        
+        fetch('{% url "api_wallet_data" %}')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const walletData = data.data;
+                    
+                    // Cập nhật số dư chính
+                    const balanceEl = document.querySelector('#current-balance');
+                    if (balanceEl) {
+                        const oldBalance = balanceEl.textContent;
+                        const newBalance = formatCurrency(walletData.balance) + ' VNĐ';
+                        
+                        if (oldBalance !== newBalance) {
+                            balanceEl.textContent = newBalance;
+                            // Hiệu ứng highlight khi thay đổi
+                            balanceEl.style.transition = 'all 0.3s ease';
+                            balanceEl.style.backgroundColor = '#e3f2fd';
+                            setTimeout(() => {
+                                balanceEl.style.backgroundColor = '';
+                            }, 1000);
+                        }
+                    }
+                    
+                    // Cập nhật tổng nạp
+                    const totalDepositEl = document.querySelector('#total-deposit');
+                    if (totalDepositEl) {
+                        totalDepositEl.textContent = formatCurrency(walletData.total_deposit) + ' VNĐ';
+                    }
+                    
+                    // Cập nhật tổng rút
+                    const totalWithdrawEl = document.querySelector('#total-withdraw');
+                    if (totalWithdrawEl) {
+                        totalWithdrawEl.textContent = formatCurrency(walletData.total_withdraw) + ' VNĐ';
+                    }
+                    
+                    // Cập nhật nạp trong 30 ngày
+                    const monthlyDepositEl = document.querySelector('#monthly-deposit');
+                    if (monthlyDepositEl) {
+                        monthlyDepositEl.textContent = formatCurrency(walletData.monthly_deposit) + ' VNĐ';
+                    }
+                    
+                    // Cập nhật rút trong 30 ngày
+                    const monthlyWithdrawEl = document.querySelector('#monthly-withdraw');
+                    if (monthlyWithdrawEl) {
+                        monthlyWithdrawEl.textContent = formatCurrency(walletData.monthly_withdraw) + ' VNĐ';
+                    }
+                    
+                    // Cập nhật danh sách giao dịch gần đây
+                    updateRecentTransactions(walletData.recent_transactions);
+                    
+                    // Cập nhật thời gian
+                    const lastUpdatedEl = document.querySelector('#wallet-last-updated');
+                    if (lastUpdatedEl) {
+                        lastUpdatedEl.textContent = 'Cập nhật: ' + walletData.last_updated;
+                    }
+                    
+                    console.log('Wallet data updated:', walletData.last_updated);
+                } else {
+                    console.error('Wallet update failed:', data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Wallet update error:', error);
+            })
+            .finally(() => {
+                isWalletUpdating = false;
+            });
+    }
+    
+    // Cập nhật danh sách giao dịch gần đây
+    function updateRecentTransactions(transactions) {
+        const tableBody = document.querySelector('#recent-transactions-tbody');
+        if (!tableBody || !transactions) return;
+        
+        let html = '';
+        transactions.forEach(transaction => {
+            const iconClass = transaction.type === 'deposit' ? 'fa-arrow-down' : 'fa-arrow-up';
+            const bgClass = transaction.type === 'deposit' ? 'bg-success-light text-success' : 'bg-danger-light text-danger';
+            const amountPrefix = transaction.type === 'deposit' ? '+' : '-';
+            const statusBadge = getStatusBadge(transaction.status);
+            
+            html += `
+                <tr>
+                    <td class="ps-4">${transaction.transaction_time}</td>
+                    <td>
+                        <div class="d-flex align-items-center">
+                            <div class="icon-circle ${bgClass} me-2" style="width: 32px; height: 32px;">
+                                <i class="fas ${iconClass}"></i>
+                            </div>
+                            <div>
+                                <strong>${transaction.type_display}</strong>
+                                ${transaction.description ? `<br><small class="text-muted">${transaction.description.substring(0, 50)}${transaction.description.length > 50 ? '...' : ''}</small>` : ''}
+                            </div>
+                        </div>
+                    </td>
+                    <td class="fw-medium ${transaction.type === 'deposit' ? 'text-success' : 'text-danger'}">
+                        ${amountPrefix}${formatCurrency(transaction.quantity)} VNĐ
+                    </td>
+                    <td>
+                        <span class="text-muted">${transaction.bank_name}</span>
+                    </td>
+                    <td>
+                        ${statusBadge}
+                    </td>
+                    <td class="text-end pe-4">
+                        <span class="text-monospace small">#${transaction.id}</span>
+                    </td>
+                </tr>
+            `;
+        });
+        
+        tableBody.innerHTML = html;
+    }
+    
+    // Helper function để tạo status badge
+    function getStatusBadge(status) {
+        const statusMap = {
+            'completed': '<span class="badge bg-success rounded-pill">Hoàn thành</span>',
+            'pending': '<span class="badge bg-warning rounded-pill">Đang xử lý</span>',
+            'failed': '<span class="badge bg-danger rounded-pill">Thất bại</span>',
+            'cancelled': '<span class="badge bg-secondary rounded-pill">Đã hủy</span>'
+        };
+        return statusMap[status] || `<span class="badge bg-light text-dark rounded-pill">${status}</span>`;
+    }
+    
+    // Khởi tạo auto-update
+    document.addEventListener('DOMContentLoaded', function() {
+        // Update ngay lập tức
+        updateWalletData();
+        
+        // Setup interval - cập nhật mỗi 20 giây cho ví (thường xuyên hơn dashboard)
+        walletUpdateInterval = setInterval(updateWalletData, 20000);
+        
+        // Thêm nút refresh manual
+        const refreshBtn = document.querySelector('#wallet-refresh-btn');
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', function() {
+                updateWalletData();
+                
+                // Hiệu ứng spin
+                const icon = this.querySelector('i');
+                icon.style.animation = 'spin 1s linear';
+                setTimeout(() => {
+                    icon.style.animation = '';
+                }, 1000);
+            });
+        }
+    });
+    
+    // Dừng update khi rời trang
+    window.addEventListener('beforeunload', function() {
+        if (walletUpdateInterval) {
+            clearInterval(walletUpdateInterval);
+        }
+    });
+</script>
 {% endblock %}

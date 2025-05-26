@@ -197,7 +197,7 @@
                                     </div>
                                 </td>
                                 <td class="text-end">
-                                    <span class="qty-value">{{ asset.quantity|default:"0"|intcomma }}</span>
+                                    <span class="qty-value">{{ asset.quantity|default:"0"|dinh_dang_tien }}</span>
                                 </td>
                                 <td class="text-end">
                                     <div class="price-value">{{ asset.average_price|default:"0"|dinh_dang_tien }}</div>
@@ -298,11 +298,11 @@
                     </div>
                     <div class="card-body">
                         <div class="ticker-name">{{ symbol.organ_name|truncatechars:25 }}</div>
-                        <div class="ticker-price">{{ symbol.price|default:"N/A"|floatformat:0|intcomma }}</div>
+                        <div class="ticker-price">{{ symbol.price|default:"N/A"|dinh_dang_tien }}</div>
                     </div>
                     <div class="card-footer">
                         <div class="volume-label">Khối lượng:</div>
-                        <div class="volume-value">{{ symbol.volume|default:"N/A"|intcomma }}</div>
+                        <div class="volume-value">{{ symbol.volume|default:"N/A"|dinh_dang_tien }}</div>
                     </div>
                 </div>
                 {% endfor %}

@@ -4,7 +4,7 @@ from django.conf import settings  # Nhập các cài đặt của dự án
 from django.conf.urls.static import static  # Nhập hàm để phục vụ các file tĩnh và media
 
 urlpatterns = [
-    path('admin/', admin.site.urls),  # Định tuyến URL cho trang quản trị
+    path('django-admin/', admin.site.urls),  # Định tuyến URL cho trang quản trị Django mặc định
     path('', include('portfolio.urls')),  # Định tuyến URL cho ứng dụng portfolio
 ]
 

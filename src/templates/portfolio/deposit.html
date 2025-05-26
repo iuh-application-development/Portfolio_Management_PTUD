@@ -1,5 +1,6 @@
 {% extends 'portfolio/base.html' %}
 {% load static %}
+{% load currency_filters %}
 
 {% block title %}Nạp tiền | {{ block.super }}{% endblock %}
 
@@ -704,7 +705,7 @@
                                             <div class="row mb-2">
                                                 <div class="col-5 text-muted">Số tiền:</div>
                                                 <div class="col-7 fw-bold text-success">
-                                                    <span class="amount-display">{{ amount|floatformat:0 }}</span> VNĐ
+                                                    <span class="amount-display">{{ amount|dinh_dang_tien }}</span> VNĐ
                                                 </div>
                                             </div>
                                             <div class="row">
@@ -1072,7 +1073,7 @@
                     <div class="mb-4">
                         <div class="d-flex justify-content-between mb-2">
                             <span class="text-muted">Số tiền nạp:</span>
-                            <span class="fw-bold amount-display">{% if verify_mode %}{{ amount|floatformat:0 }}{% else %}{{ form.amount.value|default:'100000'|floatformat:0 }}{% endif %} VNĐ</span>
+                            <span class="fw-bold amount-display">{% if verify_mode %}{{ amount|dinh_dang_tien }}{% else %}{{ form.amount.value|default:'100000'|dinh_dang_tien }}{% endif %} VNĐ</span>
                         </div>
                         <div class="d-flex justify-content-between mb-2">
                             <span class="text-muted">Phí giao dịch:</span>
@@ -1080,7 +1081,7 @@
                         </div>
                         <div class="d-flex justify-content-between mb-0">
                             <span class="text-muted">Tổng tiền:</span>
-                            <span class="fw-bold amount-display">{% if verify_mode %}{{ amount|floatformat:0 }}{% else %}{{ form.amount.value|default:'100000'|floatformat:0 }}{% endif %} VNĐ</span>
+                            <span class="fw-bold amount-display">{% if verify_mode %}{{ amount|dinh_dang_tien }}{% else %}{{ form.amount.value|default:'100000'|dinh_dang_tien }}{% endif %} VNĐ</span>
                         </div>
                     </div>
                     

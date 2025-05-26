@@ -1,5 +1,6 @@
 {% extends 'portfolio/base.html' %}
 {% load crispy_forms_tags %}
+{% load currency_filters %}
 
 {% block title %}{{ title }} | {{ block.super }}{% endblock %}
 
@@ -218,7 +219,7 @@
                             
                             <div class="summary-item">
                                 <div class="item-label">Tổng giá trị</div>
-                                <div class="item-value highlight-value">{{ form.instance.total_value|default:"0"|floatformat:0 }} VNĐ</div>
+                                <div class="item-value highlight-value">{{ form.instance.total_value|default:"0"|dinh_dang_tien }} VNĐ</div>
                             </div>
                             
                             <a href="{% url 'portfolio_detail' pk=form.instance.pk %}" class="summary-link">

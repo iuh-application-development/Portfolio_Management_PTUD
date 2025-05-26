@@ -68,6 +68,9 @@
                         <i class="fas fa-chart-pie me-2 text-primary"></i>Tổng quan tài sản
                     </h4>
                     <div class="date-picker-wrapper">
+                        <button id="manual-refresh-btn" class="btn btn-outline-primary btn-sm me-2" title="Cập nhật dữ liệu">
+                            <i class="fas fa-sync-alt"></i>
+                        </button>
                         <span class="badge bg-primary-soft text-primary px-3 py-2">
                             <i class="far fa-calendar-alt me-2"></i>
                             <span id="today-calender"></span>
@@ -84,8 +87,8 @@
                             <i class="fas fa-sack-dollar"></i>
                         </div>
                         <div class="stat-card-info">
-                            <span class="stat-card-title">Tổng giá trị tài sản</span>
-                            <div class="stat-card-value">{{ total_assets_value|dinh_dang_tien }} VND</div>
+                            <span class="stat-card-title">Tổng giá trị cổ phiếu</span>
+                            <div class="stat-card-value" id="total-assets">{{ total_stocks_value|dinh_dang_tien }}</div>
                             <div class="stat-card-progress">
                                 {% if total_profit_loss_percentage > 0 %}
                                 <span class="badge bg-success-soft text-success">
@@ -114,7 +117,7 @@
                         </div>
                         <div class="stat-card-info">
                             <span class="stat-card-title">Số dư ví điện tử</span>
-                            <div class="stat-card-value">{{ user_balance|dinh_dang_tien }} VND</div>
+                            <div class="stat-card-value" id="wallet-balance">{{ user_balance|dinh_dang_tien }}</div>
                             <div class="stat-card-progress">
                                 <a href="{% url 'wallet' %}" class="btn btn-sm btn-outline-primary rounded-pill btn-link" style="text-decoration: none;">Quản lý ví</a>
                             </div>
@@ -131,7 +134,7 @@
                         </div>
                         <div class="stat-card-info">
                             <span class="stat-card-title">Số danh mục</span>
-                            <div class="stat-card-value">{{ number_of_portfolio }}</div>
+                            <div class="stat-card-value" id="num-portfolios">{{ number_of_portfolio }}</div>
                             <div class="stat-card-progress">
                                 <span class="text-muted">Danh mục đang quản lý</span>
                             </div>
@@ -148,12 +151,21 @@
                         </div>
                         <div class="stat-card-info">
                             <span class="stat-card-title">Tổng số cổ phiếu</span>
-                            <div class="stat-card-value">{{ number_of_symbol }}</div>
+                            <div class="stat-card-value" id="num-stocks">{{ number_of_symbol }}</div>
                             <div class="stat-card-progress">
                                 <span class="text-muted">Cổ phiếu đang nắm giữ</span>
                             </div>
                         </div>
                     </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Thời gian cập nhật -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div id="last-updated" class="text-center text-muted small">
+                    Dữ liệu được cập nhật tự động mỗi 30 giây
                 </div>
             </div>
         </div>
@@ -1135,4 +1147,143 @@
         updateDay();
     });
 </script>
+
+{% block extra_js %}
+<script>
+    // Realtime Data Update
+    let updateInterval;
+    let isUpdating = false;
+    
+    // Format số tiền theo kiểu Việt Nam
+    function formatCurrency(amount) {
+        return new Intl.NumberFormat('vi-VN').format(Math.round(amount));
+    }
+    
+    // Cập nhật dữ liệu dashboard
+    function updateDashboardData() {
+        if (isUpdating) return; // Tránh multiple requests
+        
+        isUpdating = true;
+        
+        fetch('{% url "api_dashboard_data" %}')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const dashData = data.data;
+                    
+                    // Cập nhật số dư ví
+                    const walletBalanceEl = document.querySelector('#wallet-balance');
+                    if (walletBalanceEl) {
+                        walletBalanceEl.textContent = formatCurrency(dashData.wallet_balance);
+                    }
+                    
+                    // Cập nhật tổng giá trị cổ phiếu
+                    const totalAssetsEl = document.querySelector('#total-assets');
+                    if (totalAssetsEl) {
+                        totalAssetsEl.textContent = formatCurrency(dashData.total_assets);
+                    }
+                    
+                    // Cập nhật lãi/lỗ
+                    const profitLossEl = document.querySelector('#profit-loss');
+                    const profitLossPercentEl = document.querySelector('#profit-loss-percent');
+                    if (profitLossEl && profitLossPercentEl) {
+                        const profitLoss = dashData.total_profit_loss;
+                        const isProfit = profitLoss >= 0;
+                        
+                        profitLossEl.textContent = (isProfit ? '+' : '') + formatCurrency(profitLoss);
+                        profitLossEl.className = `stat-card-value ${isProfit ? 'text-success' : 'text-danger'}`;
+                        
+                        profitLossPercentEl.textContent = (isProfit ? '+' : '') + dashData.profit_loss_percentage.toFixed(2) + '%';
+                        profitLossPercentEl.className = `profit-percent ${isProfit ? 'positive' : 'negative'}`;
+                    }
+                    
+                    // Cập nhật số lượng cổ phiếu
+                    const numStocksEl = document.querySelector('#num-stocks');
+                    if (numStocksEl) {
+                        numStocksEl.textContent = dashData.number_of_stocks;
+                    }
+                    
+                    // Cập nhật thời gian update
+                    const lastUpdatedEl = document.querySelector('#last-updated');
+                    if (lastUpdatedEl) {
+                        lastUpdatedEl.textContent = 'Cập nhật lúc: ' + dashData.last_updated;
+                    }
+                    
+                    // Hiệu ứng pulse để báo hiệu cập nhật
+                    document.querySelectorAll('.stat-card').forEach(card => {
+                        card.style.transition = 'transform 0.2s ease';
+                        card.style.transform = 'scale(1.02)';
+                        setTimeout(() => {
+                            card.style.transform = 'scale(1)';
+                        }, 200);
+                    });
+                    
+                    console.log('Dashboard data updated:', dashData.last_updated);
+                } else {
+                    console.error('Dashboard update failed:', data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Dashboard update error:', error);
+            })
+            .finally(() => {
+                isUpdating = false;
+            });
+    }
+    
+    // Bắt đầu auto-update khi trang load
+    document.addEventListener('DOMContentLoaded', function() {
+        // Update ngay lập tức
+        updateDashboardData();
+        
+        // Setup interval - cập nhật mỗi 30 giây
+        updateInterval = setInterval(updateDashboardData, 30000);
+        
+        // Thêm nút manual refresh
+        const refreshBtn = document.querySelector('#manual-refresh-btn');
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', function() {
+                updateDashboardData();
+                
+                // Hiệu ứng spin cho nút refresh
+                const icon = this.querySelector('i');
+                icon.style.animation = 'spin 1s linear';
+                setTimeout(() => {
+                    icon.style.animation = '';
+                }, 1000);
+            });
+        }
+    });
+    
+    // Dừng update khi rời khỏi trang
+    window.addEventListener('beforeunload', function() {
+        if (updateInterval) {
+            clearInterval(updateInterval);
+        }
+    });
+    
+    // CSS animation cho spin effect
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .stat-card {
+            transition: all 0.3s ease;
+        }
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        #last-updated {
+            font-size: 0.8rem;
+            color: #6c757d;
+            text-align: center;
+            margin-top: 1rem;
+        }
+    `;
+    document.head.appendChild(style);
+</script>
+{% endblock %}
 {% endblock %}

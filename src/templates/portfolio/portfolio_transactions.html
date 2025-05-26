@@ -1,0 +1,87 @@
+{% extends 'portfolio/base.html' %}
+{% load static %}
+{% load currency_filters %}
+
+{% block title %}Lịch sử giao dịch danh mục | {{ block.super }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .icon-circle {
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        background-color: #f8f9fa;
+    }
+    .bg-success-light {
+        background-color: rgba(40, 167, 69, 0.15);
+    }
+    .bg-danger-light {
+        background-color: rgba(220, 53, 69, 0.15);
+    }
+    .text-monospace {
+        font-family: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
+        <div class="card-heading mb-3 mb-md-0">
+            <div class="card-heading-icon">
+                <i class="fas fa-history"></i>
+            </div>
+            <h2 class="fw-bold mb-0">Lịch sử giao dịch danh mục</h2>
+        </div>
+        <div>
+            <a href="{% url 'portfolio_list' %}" class="btn btn-outline-primary btn-rounded">
+                <i class="fas fa-arrow-left me-2"></i>Quay lại danh mục
+            </a>
+        </div>
+    </div>
+    
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} rounded-4 mb-4">
+                <div class="d-flex">
+                    <div class="me-3">
+                        <i class="fas fa-{% if message.tags == 'error' %}exclamation-circle{% elif message.tags == 'success' %}check-circle{% else %}info-circle{% endif %} fa-2x"></i>
+                    </div>
+                    <div>
+                        <h6 class="alert-heading">Thông báo</h6>
+                        <p class="mb-0">{{ message|safe }}</p>
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    {% endif %}
+    
+    <!-- Danh sách giao dịch danh mục -->
+    <div class="card border-0 shadow-sm rounded-4" data-aos="fade-up">
+        <div class="card-header bg-transparent border-0 p-4">
+            <div class="d-flex align-items-center">
+                <h5 class="mb-0">Lịch sử giao dịch cổ phiếu</h5>
+                <span class="badge bg-primary rounded-pill ms-2">Sắp có...</span>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            <div class="text-center py-5">
+                <img src="https://cdn-icons-png.flaticon.com/512/4076/4076478.png" alt="No transactions" class="img-fluid mb-4" style="max-width: 150px; opacity: 0.7;">
+                <h5>Chức năng đang được phát triển</h5>
+                <p class="text-muted">Lịch sử giao dịch mua/bán cổ phiếu của danh mục sẽ được hiển thị tại đây</p>
+                <div class="mt-3">
+                    <a href="{% url 'portfolio_list' %}" class="btn btn-primary btn-rounded mx-2">
+                        <i class="fas fa-briefcase me-2"></i>Quản lý danh mục
+                    </a>
+                    <a href="{% url 'wallet_transactions' %}" class="btn btn-success btn-rounded mx-2">
+                        <i class="fas fa-wallet me-2"></i>Lịch sử giao dịch ví
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

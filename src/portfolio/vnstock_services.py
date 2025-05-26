@@ -1,8 +1,6 @@
 from datetime import datetime
 from vnstock import Vnstock
-from .models import Assets
 import pandas as pd
-import os
 
 
 

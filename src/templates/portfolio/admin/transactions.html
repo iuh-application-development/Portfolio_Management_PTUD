@@ -1,0 +1,242 @@
+{% extends 'portfolio/admin/base.html' %}
+{% load currency_filters %}
+
+{% block title %}Quản lý giao dịch{% endblock %}
+{% block page_title %}Quản lý giao dịch{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <div class="d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">
+                <i class="fas fa-exchange-alt me-2"></i>Danh sách giao dịch
+            </h5>
+            <div class="d-flex gap-2">
+                <span class="badge bg-primary">Tổng: {{ page_obj.paginator.count }}</span>
+            </div>
+        </div>
+    </div>
+    <div class="card-body">
+        <!-- Bộ lọc -->
+        <form method="get" class="row g-3 mb-4">
+            <div class="col-md-3">
+                <label for="type" class="form-label">Loại giao dịch</label>
+                <select name="type" id="type" class="form-select">
+                    <option value="all" {% if type_filter == 'all' %}selected{% endif %}>Tất cả</option>
+                    <option value="deposit" {% if type_filter == 'deposit' %}selected{% endif %}>Nạp tiền</option>
+                    <option value="withdraw" {% if type_filter == 'withdraw' %}selected{% endif %}>Rút tiền</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="status" class="form-label">Trạng thái</label>
+                <select name="status" id="status" class="form-select">
+                    <option value="all" {% if status_filter == 'all' %}selected{% endif %}>Tất cả</option>
+                    <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>Đang xử lý</option>
+                    <option value="completed" {% if status_filter == 'completed' %}selected{% endif %}>Hoàn thành</option>
+                    <option value="cancelled" {% if status_filter == 'cancelled' %}selected{% endif %}>Đã hủy</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label for="search" class="form-label">Tìm kiếm</label>
+                <input type="text" name="search" id="search" class="form-control" 
+                       value="{{ search }}" placeholder="Tên người dùng, email, số tài khoản...">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">&nbsp;</label>
+                <div class="d-grid">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-search me-1"></i>Lọc
+                    </button>
+                </div>
+            </div>
+        </form>
+
+        <!-- Bảng giao dịch -->
+        {% if page_obj %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Mã GD</th>
+                            <th>Người dùng</th>
+                            <th>Loại</th>
+                            <th>Số tiền</th>
+                            <th>Phí</th>
+                            <th>Trạng thái</th>
+                            <th>Ngân hàng</th>
+                            <th>Thời gian</th>
+                            <th>Hành động</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for transaction in page_obj %}
+                        <tr>
+                            <td><strong>#{{ transaction.id }}</strong></td>
+                            <td>
+                                <div>
+                                    <strong>{{ transaction.user.username }}</strong>
+                                    <br>
+                                    <small class="text-muted">{{ transaction.user.email }}</small>
+                                </div>
+                            </td>
+                            <td>
+                                {% if transaction.type == 'deposit' %}
+                                    <span class="badge bg-success">
+                                        <i class="fas fa-plus-circle me-1"></i>Nạp tiền
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-info">
+                                        <i class="fas fa-minus-circle me-1"></i>Rút tiền
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <strong>{{ transaction.quantity|dinh_dang_tien }} VNĐ</strong>
+                                {% if transaction.fee > 0 %}
+                                <br><small class="text-muted">Phí: {{ transaction.fee|dinh_dang_tien }} VNĐ</small>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if transaction.status == 'pending' %}
+                                    <span class="status-badge status-pending">
+                                        <i class="fas fa-clock me-1"></i>Đang xử lý
+                                    </span>
+                                {% elif transaction.status == 'completed' %}
+                                    <span class="status-badge status-completed">
+                                        <i class="fas fa-check-circle me-1"></i>Hoàn thành
+                                    </span>
+                                {% elif transaction.status == 'cancelled' %}
+                                    <span class="status-badge status-cancelled">
+                                        <i class="fas fa-times-circle me-1"></i>Đã hủy
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-secondary">{{ transaction.status }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if transaction.bank_account %}
+                                    <div>
+                                        <strong>{{ transaction.bank_account.bank_name }}</strong>
+                                        <br>
+                                        <small class="text-muted">{{ transaction.bank_account.account_number }}</small>
+                                        <br>
+                                        <small class="text-muted">{{ transaction.bank_account.account_name }}</small>
+                                    </div>
+                                {% else %}
+                                    <span class="text-muted">Không có thông tin</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div>
+                                    {{ transaction.transaction_time|date:"d/m/Y H:i" }}
+                                    {% if transaction.completed_at %}
+                                        <br>
+                                        <small class="text-success">
+                                            Hoàn thành: {{ transaction.completed_at|date:"d/m/Y H:i" }}
+                                        </small>
+                                    {% endif %}
+                                </div>
+                            </td>
+                            <td>
+                                {% if transaction.status == 'pending' %}
+                                    <div class="btn-group btn-group-sm">
+                                        <form method="post" action="{% url 'admin_transaction_action' transaction.id %}" class="d-inline">
+                                            {% csrf_token %}
+                                            <button type="submit" name="action" value="approve" 
+                                                    class="btn btn-success btn-sm"
+                                                    onclick="return confirm('Xác nhận duyệt giao dịch #{{ transaction.id }}?')"
+                                                    title="Duyệt giao dịch">
+                                                <i class="fas fa-check"></i>
+                                            </button>
+                                        </form>
+                                        <form method="post" action="{% url 'admin_transaction_action' transaction.id %}" class="d-inline">
+                                            {% csrf_token %}
+                                            <button type="submit" name="action" value="reject" 
+                                                    class="btn btn-danger btn-sm"
+                                                    onclick="return confirm('Xác nhận hủy giao dịch #{{ transaction.id }}? {% if transaction.type == "withdraw" %}Tiền sẽ được hoàn lại cho người dùng.{% endif %}')"
+                                                    title="Hủy giao dịch">
+                                                <i class="fas fa-times"></i>
+                                            </button>
+                                        </form>
+                                    </div>
+                                {% else %}
+                                    <span class="text-muted">Đã xử lý</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Phân trang -->
+            {% if page_obj.has_other_pages %}
+                <nav aria-label="Phân trang giao dịch">
+                    <ul class="pagination justify-content-center">
+                        {% if page_obj.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page=1{% if type_filter != 'all' %}&type={{ type_filter }}{% endif %}{% if status_filter != 'all' %}&status={{ status_filter }}{% endif %}{% if search %}&search={{ search }}{% endif %}">
+                                    <i class="fas fa-angle-double-left"></i>
+                                </a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if type_filter != 'all' %}&type={{ type_filter }}{% endif %}{% if status_filter != 'all' %}&status={{ status_filter }}{% endif %}{% if search %}&search={{ search }}{% endif %}">
+                                    <i class="fas fa-angle-left"></i>
+                                </a>
+                            </li>
+                        {% endif %}
+
+                        {% for num in page_obj.paginator.page_range %}
+                            {% if page_obj.number == num %}
+                                <li class="page-item active">
+                                    <span class="page-link">{{ num }}</span>
+                                </li>
+                            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ num }}{% if type_filter != 'all' %}&type={{ type_filter }}{% endif %}{% if status_filter != 'all' %}&status={{ status_filter }}{% endif %}{% if search %}&search={{ search }}{% endif %}">{{ num }}</a>
+                                </li>
+                            {% endif %}
+                        {% endfor %}
+
+                        {% if page_obj.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if type_filter != 'all' %}&type={{ type_filter }}{% endif %}{% if status_filter != 'all' %}&status={{ status_filter }}{% endif %}{% if search %}&search={{ search }}{% endif %}">
+                                    <i class="fas fa-angle-right"></i>
+                                </a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if type_filter != 'all' %}&type={{ type_filter }}{% endif %}{% if status_filter != 'all' %}&status={{ status_filter }}{% endif %}{% if search %}&search={{ search }}{% endif %}">
+                                    <i class="fas fa-angle-double-right"></i>
+                                </a>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+                
+                <div class="text-center text-muted">
+                    Hiển thị {{ page_obj.start_index }} - {{ page_obj.end_index }} trong tổng số {{ page_obj.paginator.count }} giao dịch
+                </div>
+            {% endif %}
+        {% else %}
+            <div class="text-center py-5">
+                <i class="fas fa-exchange-alt fa-3x text-muted mb-3"></i>
+                <h5>Không có giao dịch nào</h5>
+                <p class="text-muted">Chưa có giao dịch nào phù hợp với tiêu chí tìm kiếm.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+    // Auto-submit form khi thay đổi filter
+    document.getElementById('type').addEventListener('change', function() {
+        this.form.submit();
+    });
+    
+    document.getElementById('status').addEventListener('change', function() {
+        this.form.submit();
+    });
+</script>
+{% endblock %}
+{% endblock %} 
