@@ -73,7 +73,7 @@ class BankAccount(models.Model):
     class Meta:
         verbose_name = "Tài khoản ngân hàng"
         verbose_name_plural = "Tài khoản ngân hàng"
-        unique_together = ('user', 'account_number', 'bank_name')
+        unique_together = ('account_number', 'bank_name')
         indexes = [
             models.Index(fields=['user']),
             models.Index(fields=['account_number']),

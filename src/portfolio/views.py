@@ -981,7 +981,7 @@ def wallet(request):
     # user = User.objects.get(pk=1)
     user_wallet = Wallet.objects.get(user=user)
     user_balance = user_wallet.balance
-    user_bank_accounts = BankAccount.objects.filter(user=user).order_by('-is_default', '-created_at')
+    user_bank_accounts = BankAccount.objects.filter(user=user).order_by('-is_default', '-created_at')[:5]
     
     # Lấy 5 giao dịch gần nhất để hiển thị trên trang ví
     recent_transactions = BankTransaction.objects.filter(user=user).order_by('-transaction_time')[:5]
@@ -1168,105 +1168,83 @@ def deposit_money(request):
 @login_required
 def withdraw_money(request):
     user = request.user
-    try:
-        wallet = Wallet.objects.get(user=user)
-    except Wallet.DoesNotExist:
-        wallet = Wallet.objects.create(user=user, balance=0)
-        
-    bank_accounts = BankAccount.objects.filter(user=user).order_by('-is_default', '-created_at')
+    user_balance = Wallet.objects.get(user=user).balance
+    
+    # Lấy danh sách tài khoản ngân hàng của user
+    user_bank_accounts = BankAccount.objects.filter(user=user).order_by('-is_default', '-created_at')
     
     if request.method == 'POST':
-        form = WithdrawForm(user, request.POST)
-        
-        if form.is_valid():
+        try:
+            # Lấy dữ liệu từ form
+            amount_str = request.POST.get('amount')
+            print(amount_str)
+            bank_account_id = request.POST.get('bank_account')
+            bank_account = get_object_or_404(BankAccount, id=bank_account_id, user=user)
+            print(bank_account)
+            description = request.POST.get('notes', '')
+            print(description)
+            
+            # Validate dữ liệu
+            errors = []
+            
+            # Kiểm tra số tiền
             try:
-                with transaction.atomic():
-                    amount = form.cleaned_data['amount']
-                    bank_account = form.cleaned_data.get('bank_account')
-                    description = form.cleaned_data.get('description', '')
-                    
-                    # Nếu không chọn tài khoản có sẵn, tạo tài khoản mới
-                    if not bank_account:
-                        new_bank_name = form.cleaned_data['new_bank_name']
-                        new_other_bank_name = form.cleaned_data.get('new_other_bank_name')
-                        new_account_name = form.cleaned_data['new_account_name']
-                        new_account_number = form.cleaned_data['new_account_number']
-                        new_branch = form.cleaned_data.get('new_branch', '')
-                        new_is_default = form.cleaned_data.get('new_is_default', False)
-                        
-                        # Xử lý tên ngân hàng
-                        final_bank_name = new_bank_name
-                        if new_bank_name == "Ngân hàng khác" and new_other_bank_name:
-                            final_bank_name = new_other_bank_name
-                        
-                        # Nếu đánh dấu làm mặc định hoặc là tài khoản đầu tiên
-                        if new_is_default or not bank_accounts.exists():
-                            BankAccount.objects.filter(user=user).update(is_default=False)
-                            new_is_default = True
-                        
-                        # Tạo tài khoản ngân hàng mới
-                        bank_account = BankAccount.objects.create(
-                            user=user,
-                            bank_name=final_bank_name,
-                            account_name=new_account_name,
-                            account_number=new_account_number,
-                            branch=new_branch,
-                            is_default=new_is_default
-                        )
-                    
-                    # Tính phí rút tiền (0.5%, tối thiểu 10,000, tối đa 50,000)
-                    fee = max(10000, min(50000, amount * Decimal('0.005')))
-                    
-                    # Kiểm tra số dư sau khi trừ phí
-                    total_deduct = amount + fee
-                    if wallet.balance < total_deduct:
-                        messages.error(request, f'Số dư không đủ! Cần {total_deduct:,.0f} VNĐ (bao gồm phí {fee:,.0f} VNĐ)')
-                        return render(request, 'portfolio/withdraw.html', {
-                            'form': form,
-                            'wallet': wallet,
-                            'bank_accounts': bank_accounts
-                        })
-                    
-                    # Trừ tiền trước (giao dịch vào trạng thái pending)
-                    wallet.balance -= total_deduct
-                    wallet.save()
-                    
-                    # Tạo giao dịch rút tiền
-                    bank_transaction = BankTransaction.objects.create(
-                        user=user,
-                        bank_account=bank_account,
-                        type='withdraw',
-                        quantity=amount,
-                        fee=fee,
-                        status='pending',
-                        description=description or f'Rút tiền về {bank_account.bank_name} - {bank_account.account_number}'
-                    )
-                    
-                    messages.success(
-                        request, 
-                        f'Yêu cầu rút tiền {amount:,.0f} VNĐ đã được tạo thành công! '
-                        f'Giao dịch đang được xử lý. Mã giao dịch: #{bank_transaction.id}'
-                    )
-                    return redirect('wallet_transactions')
-                    
-            except Exception as e:
-                messages.error(request, f'Có lỗi xảy ra khi xử lý giao dịch: {str(e)}')
-        else:
-            # Form không hợp lệ, hiển thị lỗi
-            for field, errors in form.errors.items():
+                amount = Decimal(amount_str)
+                if amount < 100000:  # Số tiền tối thiểu 100,000 VNĐ
+                    errors.append("Số tiền tối thiểu để rút là 100,000 VNĐ.")
+            except (ValueError, InvalidOperation, TypeError):
+                errors.append("Số tiền không hợp lệ.")
+                amount = 0
+            
+            # Tính phí rút tiền (0.5%, tối thiểu 10,000, tối đa 50,000)
+            fee = max(10000, min(50000, amount * Decimal('0.005')))
+            
+            # Kiểm tra số dư
+            total_amount = amount + fee
+            if user_balance < total_amount:
+                errors.append(f"Số dư không đủ để thực hiện giao dịch này. Bạn cần {total_amount:,.0f} VNĐ (bao gồm phí {fee:,.0f} VNĐ).")
+            
+            # Kiểm tra đồng ý điều khoản
+            if not request.POST.get('agree_terms'):
+                errors.append("Bạn cần đồng ý với điều khoản rút tiền.")
+            
+            # Xử lý nếu có lỗi
+            if errors:
                 for error in errors:
-                    if field == '__all__':
-                        messages.error(request, error)
-                    else:
-                        messages.error(request, f'{form.fields[field].label}: {error}')
-    else:
-        form = WithdrawForm(user)
+                    messages.error(request, error)
+            else:
+                # Thực hiện giao dịch rút tiền
+                try:
+                    with transaction.atomic():
+                        # Trừ số dư ví
+                        Wallet.objects.filter(user=user).update(balance=F('balance') - total_amount)
+                        
+                        # Tạo giao dịch rút tiền
+                        bank_transaction = BankTransaction.objects.create(
+                            user=user,
+                            bank_account=bank_account,
+                            type='withdraw',
+                            quantity=amount,
+                            fee=fee,
+                            status='pending',
+                            description=description or f'Rút tiền về {bank_account.bank_name} - {bank_account.account_number}',
+                            transaction_time=timezone.now()
+                        )
+                        
+                        messages.success(
+                            request, 
+                            f'Yêu cầu rút tiền {amount:,.0f} VNĐ đã được tạo thành công! '
+                            f'Giao dịch đang được xử lý. Mã giao dịch: #{bank_transaction.id}'
+                        )
+                        return redirect('wallet')
+                except Exception as e:
+                    messages.error(request, f'Có lỗi xảy ra khi xử lý giao dịch: {str(e)}')
+        except Exception as e:
+            messages.error(request, f'Có lỗi xảy ra: {str(e)}')
     
     context = {
-        'form': form,
-        'wallet': wallet,
-        'bank_accounts': bank_accounts,
-        'title': 'Rút tiền'
+        'user_balance': user_balance,
+        'user_bank_accounts': user_bank_accounts,
     }
     
     return render(request, 'portfolio/withdraw.html', context)
@@ -1312,12 +1290,12 @@ def bank_account_create(request):
             errors.append("Vui lòng chọn ngân hàng")
         
         # Nếu chọn "Ngân hàng khác" nhưng không nhập tên ngân hàng
-        if bank_name == "orther":
+        if bank_name == "other":
             if not other_bank_name:
                 errors.append("Vui lòng nhập tên ngân hàng khác")
             else:
                 bank_name = other_bank_name
-        
+        print(bank_name)
         if not account_name:
             errors.append("Vui lòng nhập tên chủ tài khoản")
         
@@ -1335,29 +1313,23 @@ def bank_account_create(request):
             for error in errors:
                 messages.error(request, error)
         else:
-            # Nếu đánh dấu là tài khoản mặc định hoặc đây là tài khoản đầu tiên, đặt tất cả các tài khoản khác là không mặc định
+            # Nếu đánh dấu là tài khoản mặc định hoặc là tài khoản đầu tiên, đặt tất cả các tài khoản khác là không mặc định
             if is_default or not bank_accounts.exists():
                 BankAccount.objects.filter(user=user).update(is_default=False)
                 is_default = True  # Đảm bảo tài khoản đầu tiên luôn là mặc định
             
-            # Xử lý trường hợp ngân hàng khác
-            final_bank_name = bank_name
-            if bank_name == "Ngân hàng khác" and other_bank_name:
-                final_bank_name = other_bank_name
-            
             # Tạo tài khoản mới
             bank_account = BankAccount.objects.create(
                 user=user,
-                bank_name=final_bank_name,
+                bank_name=bank_name,
                 account_name=account_name,
                 account_number=account_number,
                 branch=branch,
                 is_default=is_default
             )
             
-            messages.success(request, f'Đã thêm tài khoản ngân hàng {final_bank_name} - {account_number}')
+            messages.success(request, f'Đã thêm tài khoản ngân hàng {bank_name} - {account_number}')
         redirect_url = request.POST.get('redirect_url', 'deposit_money')
-        print(redirect_url)
         return redirect(redirect_url)
 
     return render(request, 'portfolio/bank_account_form.html')

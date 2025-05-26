@@ -227,6 +227,17 @@
     .amount-change-animation {
         animation: pulse 0.5s ease;
     }
+    
+    /* CSS cho card thêm tài khoản mới */
+    #newBankAccountCard {
+        transition: all 0.3s ease;
+    }
+    
+    #newBankAccountCard:hover {
+        background-color: rgba(126, 87, 194, 0.1);
+        transform: translateY(-3px);
+        box-shadow: 0 5px 15px rgba(126, 87, 194, 0.2) !important;
+    }
 </style>
 {% endblock %}
 
@@ -1015,17 +1026,19 @@
                                             </div>
                                         </div>
                                         {% endif %}
+                                        
+                                        <!-- Bank account creation card -->
                                         <div class="col-md-6">
-                                            <div class="form-check">
-                                                <div class="card border border-dashed shadow-sm rounded-4 p-3 text-center {% if request.POST.bank_account == 'new' %}selected{% endif %}">
-                                                    <a href="{% url 'bank_account_create' %}" class="text-decoration-none text-dark">
+                                            <div class="form-check bank-account-card">
+                                                <div class="card border border-dashed shadow-sm rounded-4 p-3 text-center" 
+                                                    id="newBankAccountCard" 
+                                                    data-bs-toggle="modal" 
+                                                    data-bs-target="#newBankAccountModal"
+                                                    style="cursor: pointer;">
+                                                    <div class="py-2">
+                                                        <i class="fas fa-plus-circle fa-2x text-primary mb-2"></i>
                                                         <h6 class="mb-0">Thêm tài khoản mới</h6>
-                                                        <div class="py-3">
-                                                            <i class="fas fa-plus-circle fa-2x text-primary mb-2"></i>
-                                                            <h6 class="mb-0">Thêm tài khoản mới</h6>
-                                                            <p class="small text-muted mb-0">Nhập thông tin tài khoản mới</p>
-                                                        </div>
-                                                    </a>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
@@ -1127,4 +1140,129 @@
         </div>
     </div>
 </div>
+
+<!-- Modal Thêm tài khoản mới -->
+<div class="modal fade" id="newBankAccountModal" tabindex="-1" aria-labelledby="newBankAccountModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0 shadow">
+            <div class="modal-header border-0 bg-primary-light">
+                <h5 class="modal-title" id="newBankAccountModalLabel">
+                    <i class="fas fa-university me-2"></i>Thêm tài khoản ngân hàng mới
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post" id="bankAccountForm" action="{% url 'bank_account_create' %}">
+                {% csrf_token %}
+                <div class="modal-body p-4">
+                    <input type="hidden" name="redirect_url" value="deposit_money">
+                    <div class="mb-3">
+                        <label for="new_bank_name" class="form-label">Ngân hàng <span class="text-danger">*</span></label>
+                        <select name="new_bank_name" id="new_bank_name" class="form-select">
+                            <option value="">-- Chọn ngân hàng --</option>
+                            <option value="Vietcombank">Vietcombank</option>
+                            <option value="Techcombank">Techcombank</option>
+                            <option value="BIDV">BIDV</option>
+                            <option value="Vietinbank">Vietinbank</option>
+                            <option value="MB Bank">MB Bank</option>
+                            <option value="TPBank">TPBank</option>
+                            <option value="ACB">ACB</option>
+                            <option value="Sacombank">Sacombank</option>
+                            <option value="VPBank">VPBank</option>
+                            <option value="other">Ngân hàng khác</option>
+                        </select>
+                    </div>
+                    
+                    <div id="otherBankGroup" class="mb-3 d-none">
+                        <label for="new_other_bank_name" class="form-label">Tên ngân hàng khác <span class="text-danger">*</span></label>
+                        <input type="text" name="new_other_bank_name" id="new_other_bank_name" class="form-control" value="" placeholder="Nhập tên ngân hàng">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="new_account_name" class="form-label">Chủ tài khoản <span class="text-danger">*</span></label>
+                        <input type="text" name="new_account_name" id="new_account_name" class="form-control" value="" placeholder="Nhập tên chủ tài khoản">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="new_account_number" class="form-label">Số tài khoản <span class="text-danger">*</span></label>
+                        <input type="text" name="new_account_number" id="new_account_number" class="form-control" value="" placeholder="Nhập số tài khoản">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="new_branch" class="form-label">Chi nhánh</label>
+                        <input type="text" name="new_branch" id="new_branch" class="form-control" value="" placeholder="Nhập tên chi nhánh">
+                    </div>
+                    
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="new_is_default" id="new_is_default" {% if not user_bank_accounts %}checked{% endif %}>
+                        <label class="form-check-label" for="new_is_default">
+                            Đặt làm tài khoản mặc định
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Hủy bỏ</button>
+                    <button type="submit" class="btn btn-primary rounded-pill px-4" id="saveBankAccount">
+                        <i class="fas fa-save me-1"></i>Tạo tài khoản
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Xử lý khi chọn ngân hàng khác
+    const bankSelect = document.getElementById('new_bank_name');
+    const otherBankGroup = document.getElementById('otherBankGroup');
+    
+    if (bankSelect) {
+        bankSelect.addEventListener('change', function() {
+            if (this.value === 'other') {
+                otherBankGroup.classList.remove('d-none');
+            } else {
+                otherBankGroup.classList.add('d-none');
+            }
+        });
+    }
+    
+    // Xử lý khi lưu tài khoản ngân hàng mới
+    const saveBankBtn = document.getElementById('saveBankAccount');
+    if (saveBankBtn) {
+        saveBankBtn.addEventListener('click', function() {
+            // Validate form
+            const bankName = document.getElementById('new_bank_name').value;
+            const accountName = document.getElementById('new_account_name').value;
+            const accountNumber = document.getElementById('new_account_number').value;
+            
+            let isValid = true;
+            let errorMessage = '';
+            
+            if (!bankName) {
+                isValid = false;
+                errorMessage = 'Vui lòng chọn ngân hàng';
+            } else if (bankName === 'other' && !document.getElementById('new_other_bank_name').value) {
+                isValid = false;
+                errorMessage = 'Vui lòng nhập tên ngân hàng';
+            } else if (!accountName) {
+                isValid = false;
+                errorMessage = 'Vui lòng nhập tên chủ tài khoản';
+            } else if (!accountNumber) {
+                isValid = false;
+                errorMessage = 'Vui lòng nhập số tài khoản';
+            }
+            
+            if (!isValid) {
+                alert(errorMessage);
+                return;
+            }
+            
+            // If we have the toast notification system
+            if (window.showToast) {
+                window.showToast('Đang xử lý...', 'info');
+            }
+        });
+    }
+});
+</script>
 {% endblock %}
