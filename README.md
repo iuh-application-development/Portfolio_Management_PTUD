@@ -1,159 +1,128 @@
-# Hệ Thống Quản Lý Danh Mục Đầu Tư
+# TÊN ĐỀ TÀI: Hệ Thống Quản Lý Danh Mục Đầu Tư
 
-- **Thành viên nhóm**
-- **Thành viên 1**: Hoa Xuân Hoàn - 22689381
-- **Thành viên 2**: Đào Tiến Sang - 22705971
-- **Thành viên 3**: Nguyễn Chí Trung - 22719231
-- **Thành viên 4**: Nguyễn Trường Vương - 22642961
+## 1. THÔNG TIN NHÓM
 
-## Giới Thiệu
-Hệ thống quản lý danh mục đầu tư giúp người dùng theo dõi, mua bán tài sản tài chính và quản lý danh mục đầu tư của họ. Hệ thống cung cấp các chức năng như nạp tiền vào ví, giao dịch tài sản, theo dõi biến động thị trường, và báo cáo hiệu suất danh mục.
+- Hoa Xuân Hoàn - hoaxuanhoan@gmail.com  
+- Đào Tiến Sang - tiensangdao2004@gmail.com  
+- Nguyễn Chí Trung - trungtada123@gmail.com  
+- Nguyễn Trường Vương - 
 
-## Công Nghệ Sử Dụng
-- **Font-End**: HTML, CSS, JavaScript
-- **Back-End**: Django (Python)
-- **Database**: PostgreSQL
+## 2. MÔ TẢ ĐỀ TÀI
 
-## Các Tính Năng Chính
-- Đăng ký, đăng nhập, xác thực người dùng
-- Quản lý ví tiền, nạp tiền vào ví
-- Tạo và quản lý danh mục đầu tư
-- Mua, bán tài sản tài chính
-- Theo dõi biến động giá thị trường
-- Xem báo cáo hiệu suất danh mục đầu tư
+### 2.1. Mô tả tổng quan
 
-## Cấu Trúc Dự Án
-```
-.
-├── docker-compose.yml              # Cấu hình Docker Compose
-├── Dockerfile                      # Cấu hình Docker
-├── entrypoint.sh                   # Script khởi động cho Docker
-├── requirements.txt                # Các thư viện Python cần thiết
-├── run.bat                         # Script khởi động cho Windows
-├── run.sh                          # Script khởi động cho Linux/macOS
-├── .env                            # Cấu hình biến môi trường
-└── src/                            # Mã nguồn chính của dự án
-    ├── manage.py                   # Tệp quản lý Django
-    ├── config/                     # Cấu hình Django
-    │   ├── settings.py             # Cài đặt Django
-    │   ├── urls.py                 # URL chính của hệ thống
-    │   ├── asgi.py                 # Cấu hình ASGI
-    │   └── wsgi.py                 # Cấu hình WSGI
-    ├── portfolio/                  # Ứng dụng chính
-    │   ├── admin.py                # Cấu hình admin
-    │   ├── apps.py                 # Cấu hình ứng dụng
-    │   ├── models.py               # Định nghĩa model dữ liệu
-    │   ├── views.py                # Xử lý logic và hiển thị
-    │   ├── urls.py                 # Định nghĩa URL cho ứng dụng
-    │   ├── tests.py                # Kiểm thử đơn vị
-    │   └── migrations/             # Migration database
-    ├── static/                     # Tài nguyên tĩnh (CSS, JS, hình ảnh)
-    ├── media/                      # File người dùng tải lên
-    └── templates/                  # Template HTML
-        ├── base.html               # Template cơ sở
-        └── portfolio/              # Template cho ứng dụng portfolio
-            ├── home.html           # Trang chủ
-            ├── dashboard.html      # Bảng điều khiển
-            ├── login.html          # Trang đăng nhập
-            └── register.html       # Trang đăng ký
-```
+Hệ thống quản lý danh mục đầu tư giúp người dùng theo dõi, mua bán tài sản tài chính và tối ưu hóa hiệu suất đầu tư. Đề tài được xây dựng nhằm hỗ trợ nhà đầu tư cá nhân có thể quản lý dòng tiền, giao dịch và phân tích biến động thị trường ngay trên một nền tảng duy nhất. Hệ thống cho phép tạo ví, nạp tiền, thực hiện giao dịch và xem báo cáo hiệu suất, tư vấn AI,... Ngoài ra còn bổ sung thêm một phần nhỏ của admin cho phép quản lý user ( Quản Lý Rút Tiền, Quản Lý Danh Mục, Block/Unblock User)
 
-## Mô Tả Các Thành Phần Chính
+### 2.2. Mục tiêu
 
-### Models
-- `User`: Mô hình người dùng mở rộng từ Django User
-- `Portfolio`: Danh mục đầu tư
-- `Asset`: Tài sản tài chính
-- `Transaction`: Giao dịch mua/bán
-- `Wallet`: Ví tiền của người dùng
-- `BankAccount`: Tài khoản ngân hàng liên kết
+- Phát triển hệ thống web giúp người dùng đăng ký, quản lý tài khoản cá nhân và danh mục đầu tư.  
+- Cung cấp giao diện trực quan, dễ sử dụng để theo dõi biến động thị trường và hiệu suất đầu tư.  
+- Hỗ trợ thao tác giao dịch tài sản giả lập (mua/bán) để người dùng luyện tập đầu tư.  
 
-### Views
-- `home`: Hiển thị trang chủ
-- `dashboard`: Bảng điều khiển chính
-- `register`, `login_view`: Xử lý đăng ký và đăng nhập
-- `portfolio_*`: Các view xử lý danh mục đầu tư
-- `transaction_*`: Các view xử lý giao dịch
-- `wallet_*`: Các view xử lý ví điện tử
+## 3. PHÂN TÍCH THIẾT KẾ
 
-### Templates
-- `base.html`: Template cơ sở chung
-- `home.html`: Trang chủ với giới thiệu hệ thống
-- `dashboard.html`: Bảng điều khiển người dùng
-- `login.html`, `register.html`: Form đăng nhập và đăng ký
+### 3.1. Phân tích yêu cầu
 
-### Cấu trúc cơ sở dữ liệu
-![alt text](erd.png)
+**Chức năng:**
 
+- Đăng ký, đăng nhập, xác thực người dùng  
+- Tạo và quản lý ví tiền  
+- Nạp tiền vào ví  
+- Tạo và quản lý danh mục đầu tư  
+- Mua và bán tài sản tài cổ phiếu 
+- Theo dõi biến động giá thị trường  
+- Xem hiệu suất danh mục  
+- Hỗ trợ giải đáp thắc mắc từ AI
 
-## Cài đặt
-**Yêu cầu:**
-- PostgreSQL (phải cài đặt và chạy service)
-- Python 3.8 trở lên
+**Phi chức năng:**
 
-### Cấu hình môi trường (Tùy chọn)
-File `run.bat` đã được cấu hình để chạy với các giá trị mặc định. Tuy nhiên, bạn có thể tạo file `.env` để tùy chỉnh cấu hình:
+- Giao diện thân thiện người dùng  ( Lấy Tông Màu Tím (Ceiling Price) làm màu chủ đạo )
+- Bảo mật thông tin tài khoản  ( Bằng cách sử dụng bên thứ 3 là Auth0 để xác thực đăng nhập )
+- Hiệu năng truy xuất dữ liệu tốt 
+- Khả năng mở rộng tính năng sau này 
 
-```env
-# Database Configuration
-DATABASE_NAME=portfolio_db
-DATABASE_USER=postgres
-DATABASE_PASSWORD=postgres123
-DATABASE_HOST=localhost
-DATABASE_PORT=5432
+### 3.2. Đặc tả yêu cầu
 
-# Admin Account Configuration
-admin_username=admin
-admin_password=admin123
+Chi tiết trong các module `models.py`, `views.py`, `templates`, với mô hình cơ sở dữ liệu gồm các bảng: `User`, `Portfolio`, `Asset`, `Transaction`, `Wallet`, `BankAccount`.
+
+### 3.3. Thiết kế hệ thống
+
+- **Use Case Diagram**: mô tả người dùng thao tác với hệ thống để đăng ký, tạo ví, giao dịch và xem báo cáo.  
+- **Thiết kế CSDL**: Sơ đồ ERD đính kèm:  
+  ![alt text](erd.png)  
+- **Thiết kế giao diện**: Có trong thư mục `templates/portfolio/` gồm: `home.html`, `dashboard.html`, `login.html`, `register.html`.
+
+## 4. CÔNG CỤ VÀ CÔNG NGHỆ SỬ DỤNG
+
+- **Ngôn ngữ lập trình**: Python
+- **Framework**: Django  
+- **Cơ sở dữ liệu**: PostgreSQL  
+- **Front-end**: HTML, CSS, JavaScript  
+- **IDE**: VSCode, Cursor 
+- **Công cụ triển khai**: Docker, Docker Compose  
+
+## 5. TRIỂN KHAI
+
+### 5.1. Cài đặt yêu cầu
+
+- Python 3.8+
+- PostgreSQL
+- Docker (nếu dùng Docker)
+
+### 5.2. Cài đặt Local
+
+**Windows:**
+
+```bash
+run.bat
+````
+
+**Linux/macOS:**
+
+```bash
+chmod +x run.sh
+bash run.sh
 ```
 
-**Lưu ý quan trọng:**
-- Đảm bảo PostgreSQL đã được cài đặt và service đang chạy
-- Tài khoản PostgreSQL phải có quyền tạo database
-- Nếu không có file `.env`, script sẽ sử dụng cấu hình mặc định
+### 5.3. Chạy với Docker
 
-### Local
-
-#### Windows:
-1. **Cài đặt PostgreSQL** (nếu chưa có):
-   - Tải và cài đặt từ https://www.postgresql.org/download/
-   - Đảm bảo PostgreSQL service đang chạy
-   - Ghi nhớ username/password của PostgreSQL
-
-2. **Chạy ứng dụng**:
-   - Click đúp vào file `run.bat` 
-   - Hoặc mở Command Prompt và chạy: `run.bat`
-
-3. **Truy cập ứng dụng**:
-   - URL: http://localhost:8000/
-   - Admin panel: http://localhost:8000/admin
-   - Tài khoản admin mặc định: `admin` / `admin123`
-
-#### Linux/MacOS:
-1. Cấp quyền thực thi cho file:
-   ```bash
-   chmod +x run.sh
-   ``` 
-2. Chạy script:
-   ```bash
-   bash run.sh
-   ```
-
-### Docker
-**Chú ý:** Khi chạy với Docker, tạo file `.env` và đặt:
-```
-DATABASE_HOST=db
-```
-
-Chạy lệnh:
 ```bash
 dos2unix entrypoint.sh
 docker-compose up --build
 ```
 
-**Truy cập:** http://localhost:8000/
+**Truy cập hệ thống tại**: [http://localhost:8000](http://localhost:8000)
 
-### Khắc phục sự cố
-- **Lỗi PostgreSQL**: Kiểm tra service PostgreSQL đang chạy và thông tin đăng nhập
-- **Lỗi Python**: Đảm bảo Python 3.8+ đã được cài đặt
-- **Lỗi quyền truy cập**: Chạy Command Prompt với quyền Administrator
+## 6. KIỂM THỬ
+
+* **Functional Testing**: Kiểm tra khả năng đăng nhập, nạp tiền, giao dịch, tạo portfolio.
+* **Performance Testing**: Đánh giá thời gian load trang, truy vấn danh mục khi số lượng tài sản lớn.
+* **Unit Tests**: Có sẵn trong `portfolio/tests.py`
+
+## 7. KẾT QUẢ
+
+### 7.1. Kết quả đạt được
+
+* Hoàn thiện hệ thống backend và frontend đầy đủ tính năng.
+* Tích hợp thành công Auth0, PostgreSQL, Docker và các API như Google AI Studio, Vnstock, Google Apps Script & Casso.
+* Thực hiện thành công các nghiệp vụ tài chính giả lập như mua bán, nạp tiền, xem hiệu suất.
+
+### 7.2. Kết quả chưa đạt được
+
+* Chưa có tính năng để kết nối dữ liệu mua bán trên thị trường thật.
+* Chưa tích hợp xác thực OTP/email cho tài khoản.
+
+### 7.3. Hướng phát triển
+
+* Kết nối với các công ty hỗ trợ giao dịch với sàn như DNSE.
+* Thêm chức năng phân tích biểu đồ, phân tích kỹ thuật cho người dùng ( Airflow -> Kafka -> Spark -> Postgres (Pipeline Xử lý, thu thập thông tính để kết xuất thành data hữu ích phục vụ cho việc vẽ biểu đồ, xác định điểm mua/bán, Chat Read Data,...)).
+* Phát triển phiên bản mobile với React Native hoặc Flutter.
+
+## 8. TÀI LIỆU THAM KHẢO
+
+* [https://vnstocks.com/docs/tai-lieu/huong-dan-nhanh](https://vnstocks.com/docs/tai-lieu/huong-dan-nhanh)
+* [https://auth0.com/](https://auth0.com/)
+* [https://aistudio.google.com/](https://aistudio.google.com/)
+* [https://www.docker.com/](https://www.docker.com/)
+* [https://docs.djangoproject.com/](https://docs.djangoproject.com/)
+* Tài liệu môn Phát triển ứng dụng web

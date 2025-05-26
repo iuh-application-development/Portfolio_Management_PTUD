@@ -62,17 +62,18 @@
     <div class="row">
         <div class="col-lg-8">
             <div class="card border-0 shadow-sm rounded-4 mb-4" data-aos="fade-up">
-                <nhadiv class="card-header border-0 p-4">
+                <div class="card-header border-0 p-4">
                     <div class="card-heading">
                         <div class="card-heading-icon">
                             <i class="fas fa-minus-circle"></i>
                         </div>
                         <h4 class="mb-0">Rút tiền từ tài khoản</h4>
                     </div>
-                </nhadiv>
+                </div>
                 <div class="card-body p-4">
-                    <form method="post" id="withdrawForm" action="">
+                    <form method="post" id="withdrawForm" action="{% url 'withdraw_money' %}">
                         {% csrf_token %}
+
                         <div class="alert alert-primary rounded-4 mb-4">
                             <div class="d-flex">
                                 <div class="me-3">
@@ -88,10 +89,10 @@
                         <div class="mb-4">
                             <label for="amount" class="form-label">Số tiền muốn rút <span class="text-danger">*</span></label>
                             <div class="input-group">
-                                <input type="number" name="amount" class="form-control form-control-lg" id="amount" min="100000" max="{{ user_balance|default:0 }}" step="50000" value="" required>
+                                <input type="number" name="amount" class="form-control form-control-lg" id="amount" min="100000" max="{{ wallet.balance|default:0 }}" step="50000" value="" required>
                                 <span class="input-group-text">VNĐ</span>
                             </div>
-                            <div class="form-text">Số tiền tối thiểu: 100,000 VNĐ. Phí rút tiền: 0.5% (tối thiểu 10,000 VNĐ, tối đa 50,000 VNĐ)</div>
+                            <div class="form-text">Số tiền tối thiểu: 100,000 VNĐ</div>
                         </div>
                         
                         <h5 class="mb-3">Chọn tài khoản nhận tiền</h5>
@@ -112,7 +113,9 @@
                                                         </div>
                                                     </div>
                                                     <div>
-                                                        <h6 class="mb-1">{{ account.bank_name }}</h6>
+                                                        <h6 class="mb-1">
+                                                            {{ account.bank_name }}
+                                                        </h6>
                                                         <div class="text-monospace small">{{ account.account_number }}</div>
                                                         <div class="small text-muted">{{ account.account_name }}</div>
                                                         {% if account.is_default %}<span class="badge bg-primary">Mặc định</span>{% endif %}
@@ -186,32 +189,28 @@
                                     <option value="ACB" >ACB</option>
                                     <option value="Sacombank" >Sacombank</option>
                                     <option value="VPBank" >VPBank</option>
-                                    <option value="other" >Ngân hàng khác</option>
+                                    <option value="Ngân hàng khác" >Ngân hàng khác</option>
                                 </select>
                             </div>
                             
-                            <div class="mb-3 d-none" id="otherBankGroup">
+                            <div class="mb-3 {% if form.new_bank_name.value != 'other' %}d-none{% endif %}" id="otherBankGroup">
                                 <label for="new_other_bank_name" class="form-label">Tên ngân hàng khác <span class="text-danger">*</span></label>
-                                <input type="text" name="new_other_bank_name" id="new_other_bank_name" class="form-control" 
-                                       value="">
+                                <input type="text" name="new_other_bank_name" id="new_other_bank_name" class="form-control" value="{{ form.new_other_bank_name.value|default:'' }}">
                             </div>
                             
                             <div class="mb-3">
                                 <label for="new_account_name" class="form-label">Chủ tài khoản <span class="text-danger">*</span></label>
-                                <input type="text" name="new_account_name" id="new_account_name" class="form-control" 
-                                       value="">
+                                <input type="text" name="new_account_name" id="new_account_name" class="form-control" value="{{ form.new_account_name.value|default:'' }}">
                             </div>
                             
                             <div class="mb-3">
                                 <label for="new_account_number" class="form-label">Số tài khoản <span class="text-danger">*</span></label>
-                                <input type="text" name="new_account_number" id="new_account_number" class="form-control" 
-                                       value="">
+                                <input type="text" name="new_account_number" id="new_account_number" class="form-control" value="{{ form.new_account_number.value|default:'' }}">
                             </div>
                             
                             <div class="mb-3">
                                 <label for="new_branch" class="form-label">Chi nhánh</label>
-                                <input type="text" name="new_branch" id="new_branch" class="form-control" 
-                                       value="">
+                                <input type="text" name="new_branch" id="new_branch" class="form-control" value="{{ form.new_branch.value|default:'' }}">
                             </div>
                             
                             <div class="form-check">
@@ -259,15 +258,15 @@
                     <div class="mb-4">
                         <div class="d-flex justify-content-between mb-2">
                             <span class="text-muted">Số tiền rút:</span>
-                            <span class="fw-bold amount-display">0 VNĐ</span>
+                            <span class="fw-bold amount-display">0</span>
                         </div>
                         <div class="d-flex justify-content-between mb-2">
                             <span class="text-muted">Phí rút tiền:</span>
-                            <span class="fee-display fw-bold">0 VNĐ</span>
+                            <span class="fee-display fw-bold">0</span>
                         </div>
                         <div class="d-flex justify-content-between mb-0">
-                            <span class="text-muted">Tổng tiền trừ:</span>
-                            <span class="fw-bold total-amount-display">0 VNĐ</span>
+                            <span class="text-muted">Tổng tiền nhận:</span>
+                            <span class="fw-bold total-amount-display">0</span>
                         </div>
                     </div>
                     
@@ -381,7 +380,7 @@
                     {{request.GET.redirect_url}}
                     <div id="otherBankGroup" class="mb-3 d-none">
                         <label for="new_other_bank_name" class="form-label">Tên ngân hàng khác <span class="text-danger">*</span></label>
-                        <input type="text" name="new_other_bank_name" id="new_other_bank_name" class="form-control" value="" placeholder="Nhập tên ngân hàng">
+                        <input type="text" name="new_other_bank_name" id="new_other_bank_name" class="form-control" value="">
                     </div>
                     
                     <div class="mb-3">

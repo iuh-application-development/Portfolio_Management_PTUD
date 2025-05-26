@@ -1,57 +1,48 @@
-Django==4.2.7
-python-dotenv==1.0.0
-django-crispy-forms==2.0
-crispy-bootstrap5==0.7
-psycopg2-binary==2.9.10
-vnstock==3.1.0.2
-python-decouple==3.8
-gunicorn==23.0.0
-whitenoise==6.9.0
-annotated-types==0.7.0
-asgiref==3.8.1
-attrs==25.1.0
-autobahn==24.4.2
-Automat==24.8.1
-beautifulsoup4==4.13.3
-Brotli==1.1.0
-certifi==2025.1.31
-cffi==1.17.1
-charset-normalizer==3.4.1
-click==8.1.8
-colorama==0.4.6
-constantly==23.10.4
-contourpy==1.3.1
-cryptography==44.0.2
-cycler==0.12.1
-daphne==4.1.2
-dj-database-url==2.3.0
-djangorestframework==3.15.2
-et_xmlfile==2.0.0
-fake-useragent==2.0.3
-fonttools==4.56.0
-hyperlink==21.0.0
-idna==3.10
-incremental==24.7.0
-kiwisolver==1.4.8
-msgpack==1.1.0
-numpy==2.2.3
-openpyxl==3.1.5
-service-identity==24.2.0
-sqlparse==0.5.3
-Twisted==24.11.0
-txaio==23.1.1
-typing_extensions==4.12.2
-tzdata==2025.1
-urllib3==2.3.0
-zope.interface==7.2
-authlib==1.2.1
-requests==2.31.0
-# vnai==2.0.4
-# vnstock_ezchart==0.0.2
-# django-environ==0.11.2
-# matplotlib==3.10.1
-# channels==4.2.0
-# channels_redis==4.2.1
-# setuptools==76.0.0
-# seaborn==0.13.2
-# squarify==0.4.4
+Django==4.2.7  # Framework để phát triển ứng dụng web
+python-dotenv==1.0.0  # Quản lý biến môi trường
+django-crispy-forms==2.0  # Tạo và quản lý form trong Django
+crispy-bootstrap5==0.7  # Tích hợp Bootstrap 5 vào crispy-forms
+psycopg2-binary==2.9.10  # Kết nối đến cơ sở dữ liệu PostgreSQL
+vnstock==3.1.0.2  # Thư viện để tương tác với API của VnStock
+python-decouple==3.8  # Quản lý các biến môi trường và các giá trị cấu hình
+gunicorn==23.0.0  # Máy chủ WSGI để chạy ứng dụng Django
+whitenoise==6.9.0  # Tối ưu hóa hiệu suất bằng cách nén và lưu trữ các tài nguyên tĩnh
+annotated-types==0.7.0  # Thêm chú thích kiểu dữ liệu cho các biến và hàm
+asgiref==3.8.1  # Tích hợp ASGI vào ứng dụng Django
+attrs==25.1.0  # Thêm các thuộc tính vào các đối tượng
+autobahn==24.4.2  # Tích hợp WebSocket vào ứng dụng Django
+Automat==24.8.1  # Tự động hóa các tác vụ trong ứng dụng
+beautifulsoup4==4.13.3  # Phân tích và trích xuất dữ liệu từ HTML và XML
+Brotli==1.1.0  # Nén dữ liệu để giảm thiểu kích thước
+certifi==2025.1.31  # Xác thực chứng chỉ SSL/TLS
+cffi==1.17.1  # Giao tiếp với các thư viện C
+charset-normalizer==3.4.1  # Chuẩn hóa các ký tự đặc biệt trong chuỗi
+click==8.1.8  # Tạo các ứng dụng dòng lệnh
+colorama==0.4.6  # Thêm màu sắc vào các ứng dụng dòng lệnh
+constantly==23.10.4  # Tạo các hằng số trong ứng dụng
+contourpy==1.3.1  # Tạo các đồ thị và biểu đồ
+cryptography==44.0.2  # Mã hóa và giải mã dữ liệu
+cycler==0.12.1  # Tạo các chu kỳ và các giá trị lặp lại
+daphne==4.1.2  # Máy chủ ASGI để chạy ứng dụng Django
+dj-database-url==2.3.0  # Phân tích và cấu hình URL của cơ sở dữ liệu
+djangorestframework==3.15.2  # Tạo các API RESTful trong ứng dụng Django
+et_xmlfile==2.0.0  # Đọc và ghi các tệp XML
+fake-useragent==2.0.3  # Tạo các User-Agent giả để mô phỏng các yêu cầu HTTP
+fonttools==4.56.0  # Công cụ để làm việc với các phông chữ
+hyperlink==21.0.0  # Tạo và quản lý các liên kết
+idna==3.10  # Mã hóa và giải mã các tên miền quốc tế
+incremental==24.7.0  # Tạo các giá trị tăng dần
+kiwisolver==1.4.8  # Giải quyết các vấn đề về bố cục và vị trí
+msgpack==1.1.0  # Mã hóa và giải mã các dữ liệu trong ứng dụng
+numpy==2.2.3  # Thư viện toán học và khoa học
+openpyxl==3.1.5  # Đọc và ghi các tệp Excel
+service-identity==24.2.0  # Xác thực và quản lý các dịch vụ
+sqlparse==0.5.3  # Phân tích và định dạng các truy vấn SQL
+Twisted==24.11.0  # Tạo các ứng dụng mạng và các giao thức mạng
+txaio==23.1.1  # Tích hợp các ứng dụng mạng và các giao thức mạng
+typing_extensions==4.12.2  # Thêm các kiểu dữ liệu mới vào ứng dụng
+tzdata==2025.1  # Quản lý các múi giờ và các quy tắc giờ mùa hè
+urllib3==2.3.0  # Tạo và quản lý các yêu cầu HTTP
+zope.interface==7.2  # Tích hợp các giao diện vào ứng dụng
+authlib==1.2.1  # Quản lý và xác thực các tài khoản
+requests==2.31.0  # Tạo và quản lý các yêu cầu HTTP

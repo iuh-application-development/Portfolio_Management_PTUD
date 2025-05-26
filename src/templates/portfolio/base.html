@@ -232,22 +232,6 @@
             color: var(--primary-color);
         }
         
-        /* Custom icon styles for navigation */
-        .nav-link img {
-            transition: all 0.35s ease;
-            filter: brightness(0) saturate(100%) invert(40%) sepia(10%) saturate(300%) hue-rotate(200deg) brightness(95%) contrast(90%);
-        }
-        
-        .nav-link:hover img,
-        .nav-link.active img {
-            transform: translateY(-2px);
-            filter: brightness(0) saturate(100%) invert(51%) sepia(88%) saturate(1570%) hue-rotate(261deg) brightness(91%) contrast(88%);
-        }
-        
-        .nav-link.active img {
-            filter: brightness(0) saturate(100%) invert(51%) sepia(88%) saturate(1570%) hue-rotate(261deg) brightness(91%) contrast(88%);
-        }
-        
         .navbar-toggler {
             border: none;
             padding: 0.75rem;
@@ -1446,7 +1430,6 @@
     {% block extra_css %}{% endblock %}
 </head>
 <body>
-<<<<<<< HEAD
     <!-- Enhanced Notification Container -->
     <div id="notification-container"></div>
     
@@ -1472,13 +1455,6 @@
             });
         </script>
     {% endif %}
-=======
-    <!-- Toast Container for notifications -->
-    <div class="toast-container" id="toastContainer">
-        <!-- Toasts will be added here dynamically -->
-    </div>
-    
->>>>>>> a6da90b61234ee908d1f822e93d8f0a885dba4e2
     <!-- Navbar -->
     <nav class="navbar navbar-expand-lg navbar-light bg-white sticky-top">
         <div class="container">
@@ -1515,13 +1491,8 @@
                         </a>
                     </li>
                     <li class="nav-item has-notification">
-<<<<<<< HEAD
-                        <a class="nav-link {% if '/wallet/' in request.path %}active{% endif %}" href="{% url 'wallet' %}">
-                            <img src="{% static 'portfolio/img/icons/icons_wallet.png' %}" alt="Wallet" style="width: 18px; height: 18px; margin-right: 8px;"> Ví điện tử
-=======
                         <a class="nav-link {% if '/wallet/' in request.path and '/transactions/' not in request.path %}active{% endif %}" href="{% url 'wallet' %}">
                             <i class="fas fa-wallet me-1"></i> Ví điện tử
->>>>>>> a6da90b61234ee908d1f822e93d8f0a885dba4e2
                         </a>
                     </li>
                     <li class="nav-item">
