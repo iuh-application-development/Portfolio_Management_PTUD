@@ -38,12 +38,6 @@
                                 </a>
                             </li>
                             <li><hr class="dropdown-divider"></li>
-                            <!-- <li>
-                                <a class="dropdown-item" href="{% url 'asset_create' %}">
-                                    <i class="fas fa-plus text-primary"></i>
-                                    <span>Thêm mã cổ phiếu mới</span>
-                                </a>
-                            </li> -->
                         </ul>
                     </div>
                 </div>
@@ -184,7 +178,7 @@
                                 <th class="text-end">Giá hiện tại</th>
                                 <th class="text-end">Tổng giá trị</th>
                                 <th class="text-end">Lãi/Lỗ</th>
-                                <th class="text-center">Thao tác</th>
+                                <!-- <th class="text-center">Thao tác</th> -->
                             </tr>
                         </thead>
                         <tbody>
@@ -234,19 +228,19 @@
                                     </div>
                                     {% endif %}
                                 </td>
-                                <td class="text-center">
+                                <!-- <td class="text-center">
                                     <div class="action-buttons">
-                                        <!-- <a href="{% url 'asset_detail' pk=asset.pk %}" class="btn-action view" title="Xem chi tiết">
+                                        <a href="" class="btn-action view" title="Xem chi tiết">
                                             <i class="fas fa-eye"></i>
                                         </a>
-                                        <a href="{% url 'asset_update' pk=asset.pk %}" class="btn-action edit" title="Chỉnh sửa">
+                                        <a href="" class="btn-action edit" title="Chỉnh sửa">
                                             <i class="fas fa-edit"></i>
                                         </a>
                                         <button type="button" class="btn-action trade" data-bs-toggle="modal" data-bs-target="#tradeModal{{ asset.pk }}" title="Giao dịch">
                                             <i class="fas fa-exchange-alt"></i>
-                                        </button> -->
+                                        </button>
                                     </div>
-                                </td>
+                                </td> -->
                             </tr>
                             {% endfor %}
                         </tbody>

@@ -73,14 +73,11 @@ class BankAccount(models.Model):
     class Meta:
         verbose_name = "Tài khoản ngân hàng"
         verbose_name_plural = "Tài khoản ngân hàng"
-        unique_together = ('user', 'account_number', 'bank_name')
+        unique_together = ('account_number', 'bank_name')
         indexes = [
             models.Index(fields=['user']),
             models.Index(fields=['account_number']),
         ]
-    def get_bank_name_display(self):
-        """Trả về tên ngân hàng"""
-        return dict(self.BANK_CHOICES).get(self.bank_name)
 
 
 class BankTransaction(models.Model):
@@ -114,6 +111,14 @@ class BankTransaction(models.Model):
             models.Index(fields=['status']),
             models.Index(fields=['transaction_time']),
         ]
+    
+    def get_status_display(self):
+        """Trả về tên trạng thái giao dịch"""
+        return dict(self.TYPE_CHOICES).get(self.type)
+    
+    def get_status_display(self):
+        """Trả về tên trạng thái giao dịch"""
+        return dict(self.STATUS_CHOICES).get(self.status)
         
     # def save(self, *args, **kwargs):
     #     # Cập nhật số dư ví khi giao dịch hoàn thành
@@ -369,4 +374,4 @@ from django.dispatch import receiver
 @receiver(post_save, sender=User)
 def create_user_wallet(sender, instance, created, **kwargs):
     if created and not hasattr(instance, 'wallet'):
-        Wallet.objects.create(user=instance, balance=500000000)
+        Wallet.objects.create(user=instance, balance=0)

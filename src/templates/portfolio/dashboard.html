@@ -91,17 +91,21 @@
                         </div>
                         <div class="stat-card-info">
                             <span class="stat-card-title">Tổng giá trị cổ phiếu</span>
-                            <div class="stat-card-value" id="total-assets">{{ total_assets_value|dinh_dang_tien }}</div>
+                            <div class="stat-card-value" id="total-assets">{{ total_stocks_value|dinh_dang_tien }}</div>
                             <div class="stat-card-progress">
-                                <span id="profit-loss-percent" class="badge bg-success-soft text-success">
-                                    {% if total_profit_loss_percentage > 0 %}
+                                {% if total_profit_loss_percentage > 0 %}
+                                <span class="badge bg-success-soft text-success">
                                     <i class="fas fa-arrow-up me-1"></i>{{ total_profit_loss_percentage }}%
-                                    {% elif total_profit_loss_percentage < 0 %}
-                                    <i class="fas fa-arrow-down me-1"></i>{{ total_profit_loss_percentage }}%
-                                    {% else %}
-                                    <i class="fas fa-minus me-1"></i>0%
-                                    {% endif %}
                                 </span>
+                                {% elif total_profit_loss_percentage < 0 %}
+                                <span class="badge bg-danger-soft text-danger">
+                                    <i class="fas fa-arrow-down me-1"></i>{{ total_profit_loss_percentage }}%
+                                </span>
+                                {% else %}
+                                <span class="badge bg-secondary-soft text-secondary">
+                                    <i class="fas fa-minus me-1"></i>0%
+                                </span>
+                                {% endif %}
                             </div>
                         </div>
                     </div>

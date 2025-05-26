@@ -21,22 +21,6 @@
             </a>
         </div>
     </div>
-    
-    <!-- {% if messages %}
-        {% for message in messages %}
-            <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} rounded-4 mb-4">
-                <div class="d-flex">
-                    <div class="me-3">
-                        <i class="fas fa-{% if message.tags == 'error' %}exclamation-circle{% elif message.tags == 'success' %}check-circle{% else %}info-circle{% endif %} fa-2x"></i>
-                    </div>
-                    <div>
-                        <h6 class="alert-heading">Thông báo</h6>
-                        <p class="mb-0">{{ message|safe }}</p>
-                    </div>
-                </div>
-            </div>
-        {% endfor %}
-    {% endif %} -->
 
     {% if bank_accounts %}
     <div class="card border-0 shadow-sm rounded-4" data-aos="fade-up">

@@ -42,28 +42,17 @@
             </div>
             <h2 class="fw-bold mb-0">Lịch sử giao dịch ví</h2>
         </div>
-        <div>
-            <a href="{% url 'wallet' %}" class="btn btn-outline-primary btn-rounded">
-                <i class="fas fa-wallet me-2"></i>Quay lại ví
-            </a>
+        <div class="d-flex">
+            <div class="btn-group me-2" role="group" aria-label="Transaction Type Toggle">
+                <a href="{% url 'transaction_list' %}" class="btn btn-outline-primary">
+                    <i class="fas fa-chart-line me-2"></i>Giao dịch cổ phiếu
+                </a>
+                <a href="{% url 'wallet_transactions' %}" class="btn btn-primary active">
+                    <i class="fas fa-wallet me-2"></i>Giao dịch ví
+                </a>
+            </div>
         </div>
     </div>
-    
-    {% if messages %}
-        {% for message in messages %}
-            <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} rounded-4 mb-4">
-                <div class="d-flex">
-                    <div class="me-3">
-                        <i class="fas fa-{% if message.tags == 'error' %}exclamation-circle{% elif message.tags == 'success' %}check-circle{% else %}info-circle{% endif %} fa-2x"></i>
-                    </div>
-                    <div>
-                        <h6 class="alert-heading">Thông báo</h6>
-                        <p class="mb-0">{{ message|safe }}</p>
-                    </div>
-                </div>
-            </div>
-        {% endfor %}
-    {% endif %}
     
     <!-- Bộ lọc -->
     <div class="card border-0 shadow-sm rounded-4 mb-4" data-aos="fade-up">
@@ -157,6 +146,7 @@
                                 <span class="text-success">Miễn phí</span>
                                 {% endif %}
                             </td>
+                            <td>Chuyển khoản ngân hàng</td>
                             <td>
                                 {% if transaction.bank_account %}
                                     {{ transaction.bank_account.bank_name }}
@@ -236,4 +226,4 @@
         </div>
     </div>
 </div>
-{% endblock %} 
+{% endblock %}

@@ -10,29 +10,23 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from django.urls import reverse
-from django.conf import settings
 from rest_framework import status
 
 import uuid
 import requests # Thêm import này
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from .models import Portfolio, PortfolioSymbol, Assets, User, Wallet, StockTransaction, BankAccount, BankTransaction
-# from .forms import PortfolioForm, AssetForm, TransactionForm, UserRegistrationForm, UserProfileForm
 from .vnstock_services import (
-    get_price_board, get_historical_data, get_ticker_companyname, get_current_price , sync_vnstock_to_assets,
-    get_company_name, get_list_stock_market
+    get_historical_data, get_ticker_companyname, get_current_price, get_company_name, get_price_board
 )
-from .utils import generate_qr_code, check_paid
+from .utils import get_ai_response, get_auth0_user_profile, generate_qr_code, check_paid
 
-from vnstock import Vnstock
 from decimal import Decimal, InvalidOperation
 from .utils import get_ai_response, get_auth0_user_profile
-from urllib.parse import quote_plus, urlencode
-import os
 import json
 import pandas as pd
-import random
-from datetime import datetime, timedelta
 # from authlib.integrations.django_client import OAuth  # Comment out this import
 
 # Thêm import forms
@@ -231,7 +225,6 @@ def user_profile(request):
     })
 
 
-
 def home(request):
     return render(request, 'portfolio/home.html')
 
@@ -326,7 +319,7 @@ def dashboard(request):
                 transaction.company_name = f"Cổ phiếu {transaction.symbol}"
 
     context = {
-        "total_assets_value": total_stocks_value,
+        "total_stocks_value": total_stocks_value,
         "total_profit_loss_percentage": total_profit_loss_percentage,
         "user_balance": user_balance,
         "number_of_portfolio": number_of_portfolio,
@@ -336,6 +329,8 @@ def dashboard(request):
     }
     return render(request, 'portfolio/dashboard.html', context)
 
+
+@login_required
 def portfolio_list(request):
     # user = User.objects.get(pk=1)
     user = request.user
@@ -699,40 +694,6 @@ def asset_list(request):
     }
     return render(request, 'portfolio/asset_list.html', context)
 
-@login_required
-def asset_create(request):
-    # if request.method == 'POST':
-    #     form = AssetForm(request.POST)
-    #     if form.is_valid():
-    #         form.save()
-    #         messages.success(request, 'Tài sản đã được thêm thành công!')
-    #         return redirect('asset_list')
-    # else:
-    #     form = AssetForm()
-    return render(request, 'portfolio/asset_form.html')
-
-@login_required
-def asset_detail(request, pk):
-#     asset = get_object_or_404(Asset, pk=pk)
-    return render(request, 'portfolio/asset_detail.html')
-
-@login_required
-def asset_update(request, pk):
-#     asset = get_object_or_404(Asset, pk=pk)
-#     if request.method == 'POST':
-#         form = AssetForm(request.POST, instance=asset)
-#         if form.is_valid():
-#             form.save()
-#             messages.success(request, 'Tài sản đã được cập nhật!')
-#             return redirect('asset_detail', pk=pk)
-#     else:
-#         form = AssetForm(instance=asset)
-#     return render(request, 'portfolio/asset_form.html', {
-#         'form': form,
-#         'title': 'Chỉnh sửa tài sản'
-#     })
-    return render(request, 'portfolio/asset_form.html')
-
 
 @login_required
 def transaction_list(request):
@@ -779,26 +740,8 @@ def transaction_list(request):
         'stock_transactions': stock_transactions,
         'portfolios': portfolios,
     }
-    return render(request, 'portfolio/transaction_list.html', context)
-    # return render(request, 'portfolio/transaction_list.html')
-
-@login_required
-def transaction_create(request):
-    # if request.method == 'POST':
-    #     form = TransactionForm(request.POST)
-    #     if form.is_valid():
-    #         transaction = form.save(commit=False)
-    #         transaction.total_amount = transaction.quantity * transaction.price
-    #         transaction.save()
-    #         messages.success(request, 'Giao dịch đã được tạo thành công!')
-    #         return redirect('transaction_list')
-    # else:
-    #     form = TransactionForm()
-    # return render(request, 'portfolio/transaction_form.html', {
-    #     'form': form,
-    #     'title': 'Tạo giao dịch mới'
-    # })
-    return render(request, 'portfolio/transaction_form.html')
+    return render(request, 'portfolio/stock_transaction.html', context)
+    # return render(request, 'portfolio/stock_transaction.html')
 
 
 @login_required
@@ -1046,22 +989,60 @@ def sell_stock(request, portfolio_id):
 
 @login_required
 def portfolio_transactions(request, portfolio_id):
-#     portfolio = get_object_or_404(Portfolio, pk=portfolio_id, user=request.user)
-#     transactions = Transaction.objects.filter(portfolio=portfolio).order_by('-transaction_date')
-#     return render(request, 'portfolio/portfolio_transactions.html', {
-#         'portfolio': portfolio,
-#         'transactions': transactions
-#     })
-    return render(request, 'portfolio/portfolio_transactions.html')
+    user = request.user
+    portfolios = Portfolio.objects.filter(user=user)
+    # print(portfolios)
+    # bank_transactions = BankTransaction.objects.filter(user=user)
+    stock_transactions = StockTransaction.objects.filter(user=user)
+    stock_transactions = (
+    StockTransaction.objects
+        .filter(user=user)
+        .annotate(total_value=ExpressionWrapper(F('quantity') * F('price'), output_field=FloatField()))
+    )
+    # Lọc theo danh mục
+    portfolio_id = request.GET.get('portfolio')
+    if portfolio_id:
+        if portfolio_id == "-1":
+            # Lọc theo danh mục không có cổ phiếu
+            stock_transactions = stock_transactions.filter(portfolio__isnull=True)
+            print(portfolio_id, stock_transactions)
+        else:
+            stock_transactions = stock_transactions.filter(portfolio_id=portfolio_id)
+    
+    # Lọc theo loại giao dịch
+    transaction_type = request.GET.get('type')
+    if transaction_type:
+        stock_transactions = stock_transactions.filter(transaction_type=transaction_type)
+    
+    # Lọc theo ngày
+    from_date = request.GET.get('from_date')
+    if from_date:
+        stock_transactions = stock_transactions.filter(transaction_time__gte=from_date)
+    
+    to_date = request.GET.get('to_date')
+    if to_date:
+        stock_transactions = stock_transactions.filter(transaction_time__lte=to_date)
+    
+    # Phân trang
+    paginator = Paginator(stock_transactions.order_by('-transaction_time'), 10)
+    page = request.GET.get('page')
+    stock_transactions = paginator.get_page(page)
+    
+    context = {
+        'stock_transactions': stock_transactions,
+        'portfolios': portfolios,
+    }
+    return render(request, 'portfolio/stock_transaction.html', context)
+    # return render(request, 'portfolio/portfolio_transactions.html')
 
 
-# @login_required
+@login_required
 def wallet(request):
     user = request.user
     # user = User.objects.get(pk=1)
     user_wallet = Wallet.objects.get(user=user)
     user_balance = user_wallet.balance
-    user_bank_accounts = BankAccount.objects.filter(user=user).order_by('-is_default', '-created_at')
+    user_bank_accounts = BankAccount.objects.filter(user=user).order_by('-is_default', '-created_at')[:5]
     
     # Lấy 5 giao dịch gần nhất để hiển thị trên trang ví
     recent_transactions = BankTransaction.objects.filter(user=user).order_by('-transaction_time')[:5]
@@ -1248,105 +1229,83 @@ def deposit_money(request):
 @login_required
 def withdraw_money(request):
     user = request.user
-    try:
-        wallet = Wallet.objects.get(user=user)
-    except Wallet.DoesNotExist:
-        wallet = Wallet.objects.create(user=user, balance=0)
-        
-    bank_accounts = BankAccount.objects.filter(user=user).order_by('-is_default', '-created_at')
+    user_balance = Wallet.objects.get(user=user).balance
+    
+    # Lấy danh sách tài khoản ngân hàng của user
+    user_bank_accounts = BankAccount.objects.filter(user=user).order_by('-is_default', '-created_at')
     
     if request.method == 'POST':
-        form = WithdrawForm(user, request.POST)
-        
-        if form.is_valid():
+        try:
+            # Lấy dữ liệu từ form
+            amount_str = request.POST.get('amount')
+            print(amount_str)
+            bank_account_id = request.POST.get('bank_account')
+            bank_account = get_object_or_404(BankAccount, id=bank_account_id, user=user)
+            print(bank_account)
+            description = request.POST.get('notes', '')
+            print(description)
+            
+            # Validate dữ liệu
+            errors = []
+            
+            # Kiểm tra số tiền
             try:
-                with transaction.atomic():
-                    amount = form.cleaned_data['amount']
-                    bank_account = form.cleaned_data.get('bank_account')
-                    description = form.cleaned_data.get('description', '')
-                    
-                    # Nếu không chọn tài khoản có sẵn, tạo tài khoản mới
-                    if not bank_account:
-                        new_bank_name = form.cleaned_data['new_bank_name']
-                        new_other_bank_name = form.cleaned_data.get('new_other_bank_name')
-                        new_account_name = form.cleaned_data['new_account_name']
-                        new_account_number = form.cleaned_data['new_account_number']
-                        new_branch = form.cleaned_data.get('new_branch', '')
-                        new_is_default = form.cleaned_data.get('new_is_default', False)
-                        
-                        # Xử lý tên ngân hàng
-                        final_bank_name = new_bank_name
-                        if new_bank_name == "Ngân hàng khác" and new_other_bank_name:
-                            final_bank_name = new_other_bank_name
-                        
-                        # Nếu đánh dấu làm mặc định hoặc là tài khoản đầu tiên
-                        if new_is_default or not bank_accounts.exists():
-                            BankAccount.objects.filter(user=user).update(is_default=False)
-                            new_is_default = True
-                        
-                        # Tạo tài khoản ngân hàng mới
-                        bank_account = BankAccount.objects.create(
-                            user=user,
-                            bank_name=final_bank_name,
-                            account_name=new_account_name,
-                            account_number=new_account_number,
-                            branch=new_branch,
-                            is_default=new_is_default
-                        )
-                    
-                    # Tính phí rút tiền (0.5%, tối thiểu 10,000, tối đa 50,000)
-                    fee = max(10000, min(50000, amount * Decimal('0.005')))
-                    
-                    # Kiểm tra số dư sau khi trừ phí
-                    total_deduct = amount + fee
-                    if wallet.balance < total_deduct:
-                        messages.error(request, f'Số dư không đủ! Cần {total_deduct:,.0f} VNĐ (bao gồm phí {fee:,.0f} VNĐ)')
-                        return render(request, 'portfolio/withdraw.html', {
-                            'form': form,
-                            'wallet': wallet,
-                            'bank_accounts': bank_accounts
-                        })
-                    
-                    # Trừ tiền trước (giao dịch vào trạng thái pending)
-                    wallet.balance -= total_deduct
-                    wallet.save()
-                    
-                    # Tạo giao dịch rút tiền
-                    bank_transaction = BankTransaction.objects.create(
-                        user=user,
-                        bank_account=bank_account,
-                        type='withdraw',
-                        quantity=amount,
-                        fee=fee,
-                        status='pending',
-                        description=description or f'Rút tiền về {bank_account.bank_name} - {bank_account.account_number}'
-                    )
-                    
-                    messages.success(
-                        request, 
-                        f'Yêu cầu rút tiền {amount:,.0f} VNĐ đã được tạo thành công! '
-                        f'Giao dịch đang được xử lý. Mã giao dịch: #{bank_transaction.id}'
-                    )
-                    return redirect('wallet_transactions')
-                    
-            except Exception as e:
-                messages.error(request, f'Có lỗi xảy ra khi xử lý giao dịch: {str(e)}')
-        else:
-            # Form không hợp lệ, hiển thị lỗi
-            for field, errors in form.errors.items():
+                amount = Decimal(amount_str)
+                if amount < 100000:  # Số tiền tối thiểu 100,000 VNĐ
+                    errors.append("Số tiền tối thiểu để rút là 100,000 VNĐ.")
+            except (ValueError, InvalidOperation, TypeError):
+                errors.append("Số tiền không hợp lệ.")
+                amount = 0
+            
+            # Tính phí rút tiền (0.5%, tối thiểu 10,000, tối đa 50,000)
+            fee = max(10000, min(50000, amount * Decimal('0.005')))
+            
+            # Kiểm tra số dư
+            total_amount = amount + fee
+            if user_balance < total_amount:
+                errors.append(f"Số dư không đủ để thực hiện giao dịch này. Bạn cần {total_amount:,.0f} VNĐ (bao gồm phí {fee:,.0f} VNĐ).")
+            
+            # Kiểm tra đồng ý điều khoản
+            if not request.POST.get('agree_terms'):
+                errors.append("Bạn cần đồng ý với điều khoản rút tiền.")
+            
+            # Xử lý nếu có lỗi
+            if errors:
                 for error in errors:
-                    if field == '__all__':
-                        messages.error(request, error)
-                    else:
-                        messages.error(request, f'{form.fields[field].label}: {error}')
-    else:
-        form = WithdrawForm(user)
+                    messages.error(request, error)
+            else:
+                # Thực hiện giao dịch rút tiền
+                try:
+                    with transaction.atomic():
+                        # Trừ số dư ví
+                        Wallet.objects.filter(user=user).update(balance=F('balance') - total_amount)
+                        
+                        # Tạo giao dịch rút tiền
+                        bank_transaction = BankTransaction.objects.create(
+                            user=user,
+                            bank_account=bank_account,
+                            type='withdraw',
+                            quantity=amount,
+                            fee=fee,
+                            status='pending',
+                            description=description or f'Rút tiền về {bank_account.bank_name} - {bank_account.account_number}',
+                            transaction_time=timezone.now()
+                        )
+                        
+                        messages.success(
+                            request, 
+                            f'Yêu cầu rút tiền {amount:,.0f} VNĐ đã được tạo thành công! '
+                            f'Giao dịch đang được xử lý. Mã giao dịch: #{bank_transaction.id}'
+                        )
+                        return redirect('wallet')
+                except Exception as e:
+                    messages.error(request, f'Có lỗi xảy ra khi xử lý giao dịch: {str(e)}')
+        except Exception as e:
+            messages.error(request, f'Có lỗi xảy ra: {str(e)}')
     
     context = {
-        'form': form,
-        'wallet': wallet,
-        'bank_accounts': bank_accounts,
-        'title': 'Rút tiền'
+        'user_balance': user_balance,
+        'user_bank_accounts': user_bank_accounts,
     }
     
     return render(request, 'portfolio/withdraw.html', context)
@@ -1354,46 +1313,10 @@ def withdraw_money(request):
 @login_required
 def wallet_transactions(request):
     user = request.user
-    
-    # Lấy tất cả giao dịch của người dùng
-    transactions = BankTransaction.objects.filter(user=user)
-    
-    # Lọc theo loại giao dịch
-    transaction_type = request.GET.get('type')
-    if transaction_type:
-        transactions = transactions.filter(type=transaction_type)
-    
-    # Lọc theo trạng thái
-    status = request.GET.get('status')
-    if status:
-        transactions = transactions.filter(status=status)
-    
-    # Lọc theo ngày
-    from_date = request.GET.get('from_date')
-    if from_date:
-        transactions = transactions.filter(transaction_time__gte=from_date)
-    
-    to_date = request.GET.get('to_date')
-    if to_date:
-        # Thêm 1 ngày để bao gồm cả ngày cuối
-        from datetime import datetime, timedelta
-        to_date_obj = datetime.strptime(to_date, '%Y-%m-%d') + timedelta(days=1)
-        transactions = transactions.filter(transaction_time__lt=to_date_obj)
-    
-    # Sắp xếp theo thời gian mới nhất
-    transactions = transactions.order_by('-transaction_time')
-    
-    # Phân trang
-    paginator = Paginator(transactions, 10)  # 10 giao dịch mỗi trang
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
-    
+    bank_transactions = BankTransaction.objects.filter(user=user).order_by('-transaction_time')
     context = {
-        'page_obj': page_obj,
-        'transactions': page_obj,
-        'title': 'Lịch sử giao dịch'
+        'bank_transactions': bank_transactions,
     }
-    
     return render(request, 'portfolio/wallet_transactions.html', context)
 
 
@@ -1428,9 +1351,12 @@ def bank_account_create(request):
             errors.append("Vui lòng chọn ngân hàng")
         
         # Nếu chọn "Ngân hàng khác" nhưng không nhập tên ngân hàng
-        if bank_name == "Ngân hàng khác" and not other_bank_name:
-            errors.append("Vui lòng nhập tên ngân hàng khác")
-        
+        if bank_name == "other":
+            if not other_bank_name:
+                errors.append("Vui lòng nhập tên ngân hàng khác")
+            else:
+                bank_name = other_bank_name
+        print(bank_name)
         if not account_name:
             errors.append("Vui lòng nhập tên chủ tài khoản")
         
@@ -1448,28 +1374,24 @@ def bank_account_create(request):
             for error in errors:
                 messages.error(request, error)
         else:
-            # Nếu đánh dấu là tài khoản mặc định hoặc đây là tài khoản đầu tiên, đặt tất cả các tài khoản khác là không mặc định
+            # Nếu đánh dấu là tài khoản mặc định hoặc là tài khoản đầu tiên, đặt tất cả các tài khoản khác là không mặc định
             if is_default or not bank_accounts.exists():
                 BankAccount.objects.filter(user=user).update(is_default=False)
                 is_default = True  # Đảm bảo tài khoản đầu tiên luôn là mặc định
             
-            # Xử lý trường hợp ngân hàng khác
-            final_bank_name = bank_name
-            if bank_name == "Ngân hàng khác" and other_bank_name:
-                final_bank_name = other_bank_name
-            
             # Tạo tài khoản mới
             bank_account = BankAccount.objects.create(
                 user=user,
-                bank_name=final_bank_name,
+                bank_name=bank_name,
                 account_name=account_name,
                 account_number=account_number,
                 branch=branch,
                 is_default=is_default
             )
             
-            messages.success(request, f'Đã thêm tài khoản ngân hàng {final_bank_name} - {account_number}')
-            return redirect('bank_account_list')
+            messages.success(request, f'Đã thêm tài khoản ngân hàng {bank_name} - {account_number}')
+        redirect_url = request.POST.get('redirect_url', 'deposit_money')
+        return redirect(redirect_url)
 
     return render(request, 'portfolio/bank_account_form.html')
 
@@ -1610,45 +1532,14 @@ def set_default_bank_account(request, pk):
     return redirect('bank_account_list')
 
 
+
 # ============ MARKET =======
 @login_required
 def market(request):
     return render(request, 'portfolio/market.html')
 
-# @api_view(['GET'])
-def get_historical_data_api(request, stock_code):
-    try:
-        data = get_historical_data(stock_code)
-        return JsonResponse({'data': data.to_dict('records')})
-    except Exception as e:
-        return JsonResponse({'error': str(e)}, status=400)
 
-@login_required
-def get_stock_historical_data(request, symbol):
-    try:
-        # Lấy dữ liệu lịch sử từ vnstock service
-        historical_data = get_historical_data(symbol)
-        
-        # Chuyển đổi dữ liệu thành định dạng phù hợp cho biểu đồ
-        chart_data = []
-        for _, row in historical_data.iterrows():
-            chart_data.append({
-                'time': row['time'].strftime('%Y-%m-%d') if hasattr(row['time'], 'strftime') else str(row['time']),
-                'open': float(row['open']),
-                'high': float(row['high']),
-                'low': float(row['low']),
-                'close': float(row['close'])
-            })
-        
-        print(f"Returning data for {symbol}: {len(chart_data)} records") # Debug log
-        print(f"Sample data: {chart_data[:1]}") # Debug log để xem mẫu dữ liệu
-        return JsonResponse(chart_data, safe=False)
-    except Exception as e:
-        print(f"Error getting data for {symbol}: {str(e)}") # Debug log
-        print(f"Data structure: {historical_data.head()}") if 'historical_data' in locals() else print("No data fetched") # Debug log để xem cấu trúc dữ liệu
-        return JsonResponse({'error': str(e)}, status=500)
-
-
+# ============ API =======
 @csrf_exempt
 @require_POST
 def ai_chat_api(request):
@@ -1690,405 +1581,12 @@ def ai_chat_api(request):
             'error': str(e)
         }, status=500)
 
-# Debug view to directly test asset retrieval 
-@login_required
-def debug_assets(request):
-    """Debug view to directly test asset retrieval"""
-    # Get all assets
-    all_assets = Asset.objects.all()
-    
-    # Create a simple context
-    context = {
-        'assets': all_assets,
-        'assets_count': all_assets.count(),
-        'portfolios': Portfolio.objects.filter(user=request.user),
-    }
-    
-    # Log to console
-    print(f"DEBUG: Found {all_assets.count()} assets in database")
-    for asset in all_assets:
-        print(f"  - Asset: {asset.id} | {asset.symbol} | {asset.name}")
-    
-    return render(request, 'portfolio/debug_assets.html', context)
 
-@login_required
-def sync_assets(request):
-    """View to synchronize assets from VNStock to the database"""
-    if request.method == 'POST' or request.method == 'GET':  # Allow both GET and POST
-        try:
-            result = sync_vnstock_to_assets()
-            
-            if isinstance(result, dict):
-                messages.success(
-                    request, 
-                    f"Đồng bộ thành công! Đã thêm {result['created']} cổ phiếu mới, cập nhật {result['updated']} cổ phiếu. Bây giờ bạn có thể mua/bán những cổ phiếu này."
-                )
-            else:
-                messages.error(request, "Đồng bộ không thành công, không có cổ phiếu nào được thêm.")
-        except Exception as e:
-            messages.error(request, f"Lỗi khi đồng bộ dữ liệu: {str(e)}")
-    
-    # Check if the request came from the market page
-    referer = request.META.get('HTTP_REFERER', '')
-    if 'market' in referer:
-        return redirect('market')
-    else:
-        return redirect('debug_assets')
-
-@login_required
-def update_stock_prices(request):
-    """View to update current stock prices"""
-    if request.method == 'POST':
-        try:
-            # Call the function to fetch and update prices
-            snapshot_df = fetch_stock_prices_snapshot()
-            
-            if snapshot_df is not None:
-                # Count non-null prices
-                non_null_prices = sum(1 for col in snapshot_df.columns if col != 'time' and snapshot_df[col].iloc[0] is not None)
-                messages.success(
-                    request, 
-                    f"Cập nhật giá thành công! Đã cập nhật giá cho {non_null_prices} cổ phiếu."
-                )
-            else:
-                messages.error(request, "Không thể cập nhật giá cổ phiếu.")
-        except Exception as e:
-            messages.error(request, f"Lỗi khi cập nhật giá: {str(e)}")
-    
-    return redirect('debug_assets')
-
-@login_required
-def get_stock_symbols(request):
-    """API view để lấy danh sách mã cổ phiếu phù hợp với từ khóa tìm kiếm"""
-    term = request.GET.get('term', '')
-    
-    # Sử dụng hàm vnstock để lấy danh sách cổ phiếu
-    from .vnstock_services import get_all_stock_symbols
-    
-    try:
-        # Lấy toàn bộ danh sách cổ phiếu
-        all_symbols = get_all_stock_symbols()
-        
-        # Lọc theo từ khóa tìm kiếm - ưu tiên mã cổ phiếu khớp với từ khóa
-        filtered_symbols = [item['ticker'] for item in all_symbols 
-                           if term.upper() in item['ticker'].upper()][:10]
-        
-        # Nếu không đủ 10 kết quả, tìm thêm trong tên công ty
-        if len(filtered_symbols) < 10 and term:
-            remaining_slots = 10 - len(filtered_symbols)
-            company_matches = [item['ticker'] for item in all_symbols 
-                              if item['ticker'] not in filtered_symbols 
-                              and term.upper() in item['organ_name'].upper()][:remaining_slots]
-            filtered_symbols.extend(company_matches)
-        
-        return JsonResponse(filtered_symbols, safe=False)
-    except Exception as e:
-        print(f"Error in get_stock_symbols: {str(e)}")
-        
-        # Fallback to database search if vnstock fails
-        assets = Asset.objects.filter(symbol__istartswith=term)[:10]
-        symbols = [asset.symbol for asset in assets]
-        
-        return JsonResponse(symbols, safe=False)
-
-@login_required
-def get_stock_symbols_info(request):
-    """API view để lấy thông tin tên công ty cho các mã cổ phiếu"""
-    if request.method == 'POST':
-        try:
-            import json
-            symbols_json = request.POST.get('symbols', '[]')
-            symbols = json.loads(symbols_json)
-            
-            # Nếu không có mã cổ phiếu, trả về dict trống
-            if not symbols:
-                return JsonResponse({}, safe=False)
-            
-            # Lấy thông tin từ vnstock API
-            from .vnstock_services import get_all_stock_symbols
-            try:
-                all_symbols = get_all_stock_symbols()
-                # Tạo dict ánh xạ từ mã đến tên công ty
-                symbol_info = {item['ticker']: item['organ_name'] for item in all_symbols 
-                              if item['ticker'] in symbols}
-                
-                # Nếu thiếu symbol nào, bổ sung từ database
-                missing_symbols = [symbol for symbol in symbols if symbol not in symbol_info]
-                if missing_symbols:
-                    assets = Assets.objects.filter(symbol__in=missing_symbols)
-                    for asset in assets:
-                        symbol_info[asset.symbol] = asset.name
-                
-                return JsonResponse(symbol_info, safe=False)
-            except Exception as e:
-                print(f"Error fetching company names from vnstock: {str(e)}")
-                # Fallback to database
-                assets = Assets.objects.filter(symbol__in=symbols)
-                symbol_info = {asset.symbol: asset.name for asset in assets}
-                return JsonResponse(symbol_info, safe=False)
-                
-        except Exception as e:
-            return JsonResponse({'error': str(e)}, status=400)
-    
-    return JsonResponse({'error': 'Method not allowed'}, status=405)
-
-@login_required
-def get_stock_price(request, symbol):
-    """
-    API endpoint để lấy giá cổ phiếu hiện tại và giá gợi ý mua/bán.
-    """
-    try:
-        import random
-        from .vnstock_services import get_current_bid_price, get_all_stock_symbols
-        
-        # Tìm asset hoặc tạo mới nếu chưa có
-        asset = Assets.objects.filter(symbol=symbol).first()
-        
-        # Lấy giá từ vnstock theo hướng dẫn của người dùng
-        current_bid = get_current_bid_price(symbol)
-        
-        if current_bid is not None:
-            # Nếu lấy giá thành công từ API, sử dụng giá này
-            match_price = float(current_bid)
-            
-            # Nếu asset chưa tồn tại, tạo mới
-            if not asset:
-                # Tìm thông tin công ty từ VNStock
-                try:
-                    print(f"DEBUG: Asset {symbol} not found in database, creating new asset")
-                    all_symbols = get_all_stock_symbols()
-                    company_info = next((item for item in all_symbols if item['ticker'] == symbol), None)
-                    
-                    if company_info:
-                        company_name = company_info.get('organ_name', f"Công ty {symbol}")
-                        # Tạo asset mới
-                        asset = Assets(
-                            symbol=symbol,
-                            name=company_name,
-                            type='stock',
-                            sector='Unknown',
-                            description=f"Auto-created from VNStock on {datetime.now().strftime('%Y-%m-%d')}",
-                            current_price=match_price
-                        )
-                        asset.save()
-                        print(f"DEBUG: Created new asset: {asset.id} - {asset.symbol} - {asset.name}")
-                    else:
-                        # Nếu không tìm thấy thông tin công ty, vẫn tạo Asset với thông tin tối thiểu
-                        print(f"DEBUG: Company info for {symbol} not found in VNStock, creating minimal asset")
-                        asset = Assets(
-                            symbol=symbol,
-                            name=f"Cổ phiếu {symbol}",
-                            type='stock',
-                            sector='Unknown',
-                            description=f"Auto-created minimal asset on {datetime.now().strftime('%Y-%m-%d')}",
-                            current_price=match_price
-                        )
-                        asset.save()
-                        print(f"DEBUG: Created minimal asset: {asset.id} - {asset.symbol}")
-                except Exception as e:
-                    print(f"ERROR creating new asset: {str(e)}")
-                    # Tạo asset đơn giản nhất có thể nếu có lỗi
-                    try:
-                        asset = Assets(
-                            symbol=symbol,
-                            name=f"Cổ phiếu {symbol}",
-                            type='stock',
-                            sector='Unknown',
-                            description="Auto-created as fallback after error",
-                            current_price=match_price
-                        )
-                        asset.save()
-                        print(f"DEBUG: Created fallback asset after error: {asset.id} - {asset.symbol}")
-                    except Exception as e2:
-                        print(f"CRITICAL ERROR creating fallback asset: {str(e2)}")
-            elif asset:
-                # Cập nhật giá mới cho asset
-                asset.current_price = match_price
-                asset.save(update_fields=['current_price', 'last_updated'])
-                print(f"DEBUG: Updated price for {symbol} to {match_price}")
-            
-            # Tạo giá trị giả lập cho biến động giá
-            change_percent = random.uniform(-2, 2)
-            
-            # Tính giá mua/bán: giá mua thấp hơn 0.5%, giá bán cao hơn 0.5%
-            buy_price = round(match_price * 0.995)
-            sell_price = round(match_price * 1.005)
-            
-            # Chuẩn bị dữ liệu phản hồi
-            response_data = {
-                'success': True,
-                'symbol': symbol,
-                'price': match_price,
-                'change_percent': change_percent,
-                'buy_price': buy_price,
-                'sell_price': sell_price,
-                'source': 'vnstock',
-                'asset_exists': asset is not None,
-                'asset_id': asset.id if asset else None,
-                'asset_name': asset.name if asset else f"Cổ phiếu {symbol}"
-            }
-            
-            # Trả về phản hồi JSON
-            return JsonResponse(response_data)
-        else:
-            # Không lấy được giá từ API, tìm trong cơ sở dữ liệu
-            asset = Assets.objects.filter(symbol=symbol).first()
-            if asset:
-                match_price = float(asset.current_price)
-                change_percent = random.uniform(-2, 2)
-                buy_price = round(match_price * 0.995)
-                sell_price = round(match_price * 1.005)
-                
-                response_data = {
-                    'success': True,
-                    'symbol': symbol,
-                    'price': match_price,
-                    'change_percent': change_percent,
-                    'buy_price': buy_price,
-                    'sell_price': sell_price,
-                    'source': 'database',
-                    'asset_exists': True,
-                    'asset_id': asset.id,
-                    'asset_name': asset.name
-                }
-                return JsonResponse(response_data)
-            else:
-                # Tạo cổ phiếu mới với giá mặc định nếu không thể lấy từ API
-                try:
-                    default_price = 10000  # Giá mặc định
-                    asset = Assets(
-                        symbol=symbol,
-                        name=f"Cổ phiếu {symbol}",
-                        type='stock',
-                        sector='Unknown',
-                        description=f"Auto-created with default price on {datetime.now().strftime('%Y-%m-%d')}",
-                        current_price=default_price
-                    )
-                    asset.save()
-                    print(f"DEBUG: Created new asset with default price: {asset.id} - {asset.symbol}")
-                    
-                    response_data = {
-                        'success': True,
-                        'symbol': symbol,
-                        'price': default_price,
-                        'change_percent': 0,
-                        'buy_price': round(default_price * 0.995),
-                        'sell_price': round(default_price * 1.005),
-                        'source': 'default',
-                        'asset_exists': True,
-                        'asset_id': asset.id,
-                        'asset_name': asset.name
-                    }
-                    return JsonResponse(response_data)
-                except Exception as e:
-                    print(f"ERROR creating new asset with default price: {str(e)}")
-                    # Không tìm thấy cổ phiếu trong cơ sở dữ liệu và không thể tạo mới
-                    return JsonResponse({
-                        'success': False,
-                        'error': f'Không tìm thấy mã cổ phiếu {symbol} và không thể tạo mới'
-                    }, status=404)
-    except Exception as e:
-        print(f"ERROR in get_stock_price: {str(e)}")
-        return JsonResponse({
-            'success': False,
-            'error': f'Lỗi khi xử lý thông tin cổ phiếu: {str(e)}'
-        }, status=500)
-
-@login_required
-def create_asset_from_symbol(request):
-    """
-    API endpoint để tạo mới hoặc cập nhật asset từ mã cổ phiếu
-    """
-    if request.method == 'POST':
-        try:
-            symbol = request.POST.get('symbol')
-            if not symbol:
-                return JsonResponse({'success': False, 'error': 'Thiếu mã cổ phiếu'}, status=400)
-            
-            from .vnstock_services import get_current_bid_price, get_all_stock_symbols
-            
-            # Kiểm tra xem asset đã tồn tại chưa
-            asset = Assets.objects.filter(symbol=symbol).first()
-            
-            # Nếu đã tồn tại thì cập nhật giá
-            if asset:
-                # Lấy giá hiện tại từ API
-                current_price = get_current_bid_price(symbol)
-                if current_price is not None:
-                    asset.current_price = float(current_price)
-                    asset.save(update_fields=['current_price', 'last_updated'])
-                    
-                    return JsonResponse({
-                        'success': True,
-                        'message': f'Đã cập nhật giá cho {symbol}',
-                        'asset_id': asset.id,
-                        'asset_name': asset.name,
-                        'price': float(asset.current_price),
-                        'created': False,
-                        'updated': True
-                    })
-                else:
-                    return JsonResponse({
-                        'success': True,
-                        'message': f'Không lấy được giá mới cho {symbol}, giữ nguyên giá cũ',
-                        'asset_id': asset.id,
-                        'asset_name': asset.name,
-                        'price': float(asset.current_price),
-                        'created': False,
-                        'updated': False
-                    })
-            
-            # Nếu chưa tồn tại, tạo mới
-            # Lấy giá hiện tại
-            current_price = get_current_bid_price(symbol)
-            if current_price is None:
-                current_price = 10000  # Giá mặc định nếu không lấy được
-            
-            # Lấy thông tin công ty
-            company_name = f"Cổ phiếu {symbol}"
-            try:
-                all_symbols = get_all_stock_symbols()
-                company_info = next((item for item in all_symbols if item['ticker'] == symbol), None)
-                if company_info:
-                    company_name = company_info.get('organ_name', company_name)
-            except Exception as e:
-                print(f"ERROR getting company info for {symbol}: {str(e)}")
-            
-            # Tạo asset mới
-            new_asset = Assets(
-                symbol=symbol,
-                name=company_name,
-                type='stock',
-                sector='Unknown',
-                description=f"Auto-created via API on {datetime.now().strftime('%Y-%m-%d')}",
-                current_price=current_price
-            )
-            new_asset.save()
-            
-            return JsonResponse({
-                'success': True,
-                'message': f'Đã tạo mới cổ phiếu {symbol}',
-                'asset_id': new_asset.id,
-                'asset_name': new_asset.name,
-                'price': float(new_asset.current_price),
-                'created': True,
-                'updated': False
-            })
-            
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'error': f'Lỗi: {str(e)}'
-            }, status=500)
-    
-    return JsonResponse({'success': False, 'error': 'Chỉ hỗ trợ phương thức POST'}, status=405)
-
-
-
-
-# ============ API =======
 from rest_framework.decorators import api_view
+
+# lấy bảng giá cổ phiếu
 @api_view(['GET'])
+@login_required
 def get_price_board_api(request):
     """
     API endpoint để lấy bảng giá cổ phiếu
@@ -2107,6 +1605,7 @@ def get_price_board_api(request):
         return JsonResponse({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 # API lấy giá cổ phiếu hiện tại theo mã
+@login_required
 @api_view(['GET'])
 def get_current_price_symbol_api(request):
     """
@@ -2127,6 +1626,34 @@ def get_current_price_symbol_api(request):
     
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+
+# lấy dữ liệu lịch sử vẽ biểu đồ giá
+@login_required
+@api_view(['GET'])
+def get_stock_historical_data(request, symbol):
+    try:
+        # Lấy dữ liệu lịch sử từ vnstock service
+        historical_data = get_historical_data(symbol)
+        
+        # Chuyển đổi dữ liệu thành định dạng phù hợp cho biểu đồ
+        chart_data = []
+        for _, row in historical_data.iterrows():
+            chart_data.append({
+                'time': row['time'].strftime('%Y-%m-%d') if hasattr(row['time'], 'strftime') else str(row['time']),
+                'open': float(row['open']),
+                'high': float(row['high']),
+                'low': float(row['low']),
+                'close': float(row['close'])
+            })
+        
+        print(f"Returning data for {symbol}: {len(chart_data)} records") # Debug log
+        print(f"Sample data: {chart_data[:1]}") # Debug log để xem mẫu dữ liệu
+        return JsonResponse(chart_data, safe=False)
+    except Exception as e:
+        print(f"Error getting data for {symbol}: {str(e)}") # Debug log
+        print(f"Data structure: {historical_data.head()}") if 'historical_data' in locals() else print("No data fetched") # Debug log để xem cấu trúc dữ liệu
+        return JsonResponse({'error': str(e)}, status=500)
 
 # ============ ADMIN VIEWS =======
 from django.contrib.auth import authenticate, login as auth_login
@@ -2478,7 +2005,7 @@ def api_dashboard_data(request):
         
         # Đếm số cổ phiếu đang nắm
         number_of_stocks = portfolio_symbols.count() if 'portfolio_symbols' in locals() else 0
-        
+
         return JsonResponse({
             'success': True,
             'data': {
@@ -2487,8 +2014,8 @@ def api_dashboard_data(request):
                 'total_profit_loss': float(total_profit_loss),
                 'profit_loss_percentage': profit_loss_percentage,
                 'number_of_stocks': number_of_stocks,
-                'total_assets': float(total_stocks_value),  # Chỉ tính cổ phiếu
-                'last_updated': timezone.now().strftime('%H:%M:%S %d/%m/%Y')
+                'total_assets': total_stocks_value,  # Chỉ tính cổ phiếu
+                'last_updated': datetime.now(ZoneInfo("Asia/Ho_Chi_Minh")).strftime('%H:%M:%S %d/%m/%Y')
             }
         })
     except Exception as e:
@@ -2527,7 +2054,7 @@ def api_market_data(request):
             'success': True,
             'data': {
                 'stocks': market_data,
-                'last_updated': timezone.now().strftime('%H:%M:%S %d/%m/%Y')
+                'last_updated': datetime.now(ZoneInfo("Asia/Ho_Chi_Minh")).strftime('%H:%M:%S %d/%m/%Y')
             }
         })
     except Exception as e:
