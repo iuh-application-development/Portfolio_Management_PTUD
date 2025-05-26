@@ -2,10 +2,638 @@
 {% load static %}
 {% load currency_filters %}
 
-{% block title %}Rút tiền | {{ block.super }}{% endblock %}
+{% block title %}Nạp tiền | {{ block.super }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .qrcode-container {
+        width: 200px;
+        height: 200px;
+        margin: 0 auto;
+        background-color: #f8f9fa;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+        border: 1px dashed #dee2e6;
+    }
+    .qrcode-container img {
+        max-width: 100%;
+        max-height: 100%;
+    }
+    .payment-option-card {
+        transition: all 0.3s ease;
+    }
+    .payment-option-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+    }
+    .payment-option-card.selected {
+        border-color: var(--primary-color) !important;
+        box-shadow: 0 0 0 1px var(--primary-color), 0 5px 15px rgba(0,0,0,0.05);
+    }
+    .form-check-input[type="radio"]:checked + .form-check-label .card {
+        border-color: var(--primary-color) !important;
+        box-shadow: 0 0 0 1px var(--primary-color), 0 5px 15px rgba(0,0,0,0.05);
+    }
+    .border-dashed {
+        border-style: dashed !important;
+    }
+    .icon-circle {
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        background-color: #f8f9fa;
+        transition: all 0.3s ease;
+    }
+    
+    /* Cải tiến CSS mới */
+    .card {
+        transition: all 0.3s ease;
+        border-radius: 12px !important;
+    }
+    
+    .card:hover {
+        box-shadow: 0 8px 15px rgba(0,0,0,0.05);
+    }
+    
+    .card-header {
+        border-top-left-radius: 12px !important;
+        border-top-right-radius: 12px !important;
+    }
+    
+    .bank-info-card {
+        background: linear-gradient(to right, #f8f9fa, #ffffff) !important;
+        border: 1px solid #eaeaea !important;
+    }
+    
+    .bank-info-row {
+        transition: all 0.2s ease;
+        padding: 8px 0;
+        border-bottom: 1px dotted #eaeaea;
+    }
+    
+    .bank-info-row:last-child {
+        border-bottom: none;
+    }
+    
+    .bank-info-row:hover {
+        background-color: rgba(0,0,0,0.01);
+    }
+    
+    .bank-logo-wrapper {
+        display: inline-flex;
+        align-items: center;
+        background: white;
+        padding: 4px;
+        border-radius: 6px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.03);
+        margin-right: 8px;
+    }
+    
+    .btn {
+        transition: all 0.3s ease;
+        border-radius: 8px;
+    }
+    
+    .btn-primary, .btn-success {
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    
+    .btn-primary:hover, .btn-success:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 8px rgba(0,0,0,0.15);
+    }
+    
+    .btn-primary:active, .btn-success:active {
+        transform: translateY(0);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .rounded-4 {
+        border-radius: 12px !important;
+    }
+    
+    .alert {
+        border: none !important;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.03);
+    }
+    
+    .alert-info {
+        background-color: rgba(13, 202, 240, 0.1) !important;
+        border-left: 4px solid #0dcaf0 !important;
+    }
+    
+    .alert-warning {
+        background-color: rgba(255, 193, 7, 0.1) !important;
+        border-left: 4px solid #ffc107 !important;
+    }
+    
+    .card-heading {
+        position: relative;
+        padding-left: 28px;
+    }
+    
+    .card-heading-icon {
+        position: absolute;
+        left: 0;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: var(--primary-color);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+    }
+    
+    /* Animation cho QR code */
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .qr-code-animation {
+        animation: fadeIn 0.5s ease;
+    }
+    
+    /* Hiệu ứng cho phần số tiền */
+    .amount-display {
+        position: relative;
+        font-weight: bold;
+        color: #198754 !important;
+    }
+    
+    /* Hiệu ứng khi focus vào input */
+    .form-control:focus, .form-select:focus {
+        box-shadow: 0 0 0 0.25rem rgba(var(--primary-color-rgb), 0.15) !important;
+    }
+    
+    .input-focused .input-group-text {
+        box-shadow: 0 0 10px rgba(32, 201, 151, 0.3);
+    }
+    
+    /* Style cho input số tiền */
+    .amount-input-wrapper {
+        position: relative;
+    }
+    
+    .amount-input {
+        transition: all 0.3s ease;
+    }
+    
+    .amount-input:focus {
+        border-color: #20c997 !important;
+    }
+
+    .breadcrumb {
+        background: rgb(22 10 86 / 35%);
+        display: inline-flex;
+        padding: 0.5rem 1rem;
+        border-radius: 50px;
+        backdrop-filter: blur(5px);
+        margin-bottom: 1.5rem;
+    }
+
+    .breadcrumb-item,
+    .breadcrumb-item a {
+        color: rgba(0, 0, 24, 0.85);
+        font-size: 0.85rem;
+        font-weight: 500;
+        text-decoration: none;
+    }
+
+    .breadcrumb-item.active {
+        color: rgb(255, 255, 255);
+    }
+
+    .breadcrumb-item + .breadcrumb-item::before {
+        color: rgba(255, 255, 255, 0.5);
+    }
+    
+    /* Animation hiệu ứng nhập số tiền */
+    @keyframes pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.02); }
+        100% { transform: scale(1); }
+    }
+    
+    .amount-change-animation {
+        animation: pulse 0.5s ease;
+    }
+    
+    /* CSS cho card thêm tài khoản mới */
+    #newBankAccountCard {
+        transition: all 0.3s ease;
+    }
+    
+    #newBankAccountCard:hover {
+        background-color: rgba(126, 87, 194, 0.1);
+        transform: translateY(-3px);
+        box-shadow: 0 5px 15px rgba(126, 87, 194, 0.2) !important;
+    }
+</style>
+{% endblock %}
 
 {% block extra_js %}
 <script src="{% static 'portfolio/js/wallet.js' %}"></script>
+<!-- Use CDN for QR code library -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Thêm hiệu ứng hover cho các row thông tin ngân hàng
+        document.querySelectorAll('.bank-info-row').forEach(row => {
+            row.addEventListener('mouseenter', () => {
+                row.style.backgroundColor = 'rgba(0,0,0,0.02)';
+            });
+            row.addEventListener('mouseleave', () => {
+                row.style.backgroundColor = '';
+            });
+        });
+        
+        // Thêm hiệu ứng pulse cho logo ngân hàng
+        document.querySelectorAll('.bank-logo-wrapper').forEach(logo => {
+            logo.addEventListener('mouseenter', () => {
+                logo.style.transform = 'scale(1.05)';
+                logo.style.transition = 'transform 0.2s';
+            });
+            logo.addEventListener('mouseleave', () => {
+                logo.style.transform = 'scale(1)';
+            });
+        });
+        
+        // Immediate bank section visibility
+        const bankTransferSection = document.getElementById('bank_transferSection');
+        if (bankTransferSection) {
+            bankTransferSection.classList.remove('d-none');
+        }
+        
+        // Wait for page to fully load
+        setTimeout(initializeQRCodes, 1000);
+        
+        // Set up event listeners
+        const amountInput = document.getElementById('amount');
+        if (amountInput) {
+            // Thêm hiệu ứng cho input
+            amountInput.addEventListener('focus', function() {
+                this.style.boxShadow = "0 0 0 0.25rem rgba(32, 201, 151, 0.25)";
+                this.parentElement.classList.add('input-focused');
+            });
+            amountInput.addEventListener('blur', function() {
+                this.style.boxShadow = "";
+                this.parentElement.classList.remove('input-focused');
+            });
+            
+            // Update amount display in transaction info sidebar
+            amountInput.addEventListener('input', function() {
+                // Định dạng số tiền với dấu phẩy ngăn cách hàng nghìn
+                const formattedAmount = new Intl.NumberFormat('vi-VN').format(this.value) + ' VNĐ';
+                
+                // Cập nhật tất cả các phần tử hiển thị số tiền
+                document.querySelectorAll('.amount-display').forEach(el => {
+                    el.textContent = formattedAmount;
+                    // Thêm hiệu ứng nhấp nháy khi số tiền thay đổi
+                    el.style.transition = 'color 0.3s';
+                    el.style.color = '#dc3545';
+                    
+                    // Thêm hiệu ứng pulse animation
+                    el.classList.add('amount-change-animation');
+                    setTimeout(() => {
+                        el.style.color = '#198754';
+                    }, 300);
+                    
+                    // Xóa animation class sau khi hoàn thành để có thể thêm lại sau
+                    setTimeout(() => {
+                        el.classList.remove('amount-change-animation');
+                    }, 500);
+                });
+                
+                // Cập nhật mã QR sau một khoảng thời gian ngắn (để tránh cập nhật liên tục)
+                clearTimeout(qrUpdateTimeout);
+                qrUpdateTimeout = setTimeout(updateQRCode, 1000);
+            });
+            
+            // Trigger initial amount display
+            document.querySelectorAll('.amount-display').forEach(el => {
+                el.textContent = new Intl.NumberFormat('vi-VN').format(amountInput.value) + ' VNĐ';
+            });
+        }
+        
+        // Xử lý nút cập nhật mã QR
+        const reloadQRBtn = document.getElementById('reloadQRBtn');
+        if (reloadQRBtn) {
+            reloadQRBtn.addEventListener('click', function() {
+                updateQRCode();
+            });
+        }
+        
+        // Cập nhật mã QR khi thay đổi số tiền (sau một khoảng thời gian)
+        let qrUpdateTimeout;
+        if (amountInput) {
+            amountInput.addEventListener('input', function() {
+                clearTimeout(qrUpdateTimeout);
+                qrUpdateTimeout = setTimeout(function() {
+                    updateQRCode();
+                }, 1000); // Đợi 1 giây sau khi người dùng ngừng nhập
+            });
+        }
+        
+        // Handle payment method switching manually through card clicks
+        const paymentCards = document.querySelectorAll('.payment-option-card');
+        const paymentRadios = document.querySelectorAll('.payment-radio');
+        const actualPaymentMethodInput = document.getElementById('actual_payment_method');
+        
+        paymentCards.forEach(card => {
+            card.addEventListener('click', function(e) {
+                // Find the radio button
+                const radio = this.closest('.form-check').querySelector('input[type="radio"]');
+                if (!radio) return;
+                
+                // Update hidden input with selected value
+                if (actualPaymentMethodInput) {
+                    actualPaymentMethodInput.value = radio.value;
+                }
+                
+                // Update UI for all cards
+                paymentCards.forEach(c => c.classList.remove('selected'));
+                this.classList.add('selected');
+                
+                // Update radio button states (for UI consistency)
+                paymentRadios.forEach(r => {
+                    r.checked = (r === radio);
+                });
+                
+                // Show corresponding section
+                handlePaymentMethodChange(radio.value);
+                
+                // Prevent default click behavior
+                e.preventDefault();
+                e.stopPropagation();
+                return false;
+            });
+        });
+        
+        // Initial selection
+        const selectedMethod = document.querySelector('input[name="payment_method"]:checked');
+        if (selectedMethod) {
+            selectedMethod.closest('.form-check').querySelector('.card').classList.add('selected');
+            handlePaymentMethodChange(selectedMethod.value);
+        } else if (paymentCards.length > 0) {
+            const firstRadio = paymentCards[0].querySelector('input[type="radio"]');
+            if (firstRadio) {
+                firstRadio.checked = true;
+                paymentCards[0].classList.add('selected');
+                handlePaymentMethodChange(firstRadio.value);
+            }
+        }
+        
+        // Bank account card selection
+        document.querySelectorAll('.form-check input[name="bank_account"]').forEach(radioBtn => {
+            const card = radioBtn.closest('.form-check').querySelector('.card');
+            
+            // Add click event to the card
+            if (card) {
+                card.addEventListener('click', function(e) {
+                    radioBtn.checked = true;
+                    
+                    // Update all cards UI
+                    document.querySelectorAll('.form-check input[name="bank_account"]').forEach(rb => {
+                        const otherCard = rb.closest('.form-check').querySelector('.card');
+                        if (otherCard) {
+                            if (rb.checked) {
+                                otherCard.classList.add('selected');
+                            } else {
+                                otherCard.classList.remove('selected');
+                            }
+                        }
+                    });
+                    
+                    // Toggle new bank account form
+                    toggleNewBankAccountForm();
+                    
+                    e.preventDefault();
+                    e.stopPropagation();
+                });
+            }        });
+        
+        // Bank name change for new account
+        const bankNameSelect = document.getElementById('new_bank_name');
+        if (bankNameSelect) {
+            bankNameSelect.addEventListener('change', function() {
+                toggleOtherBankField();
+            });
+        }
+        
+        // Initial bank account form display
+        toggleNewBankAccountForm();
+        toggleOtherBankField();
+        
+        // Show bank transfer section immediately
+        showBankTransferSection();
+    });
+    
+    function showBankTransferSection() {
+        // Get the bank transfer section
+        const bankTransferSection = document.getElementById('bank_transferSection');
+        if (bankTransferSection) {
+            // Make sure it's visible
+            bankTransferSection.classList.remove('d-none');
+            console.log("Hiển thị phần chuyển khoản ngân hàng");
+            
+            // If there's a bank transfer radio button, mark it as selected
+            const bankTransferRadio = document.getElementById('bankTransfer');
+            if (bankTransferRadio) {
+                bankTransferRadio.checked = true;
+                
+                // Update UI for all payment methods
+                document.querySelectorAll('.payment-option-card').forEach(card => {
+                    card.classList.remove('selected');
+                });
+                
+                // Update the hidden form field
+                const actualPaymentMethodInput = document.getElementById('actual_payment_method');
+                if (actualPaymentMethodInput) {
+                    actualPaymentMethodInput.value = 'bank_transfer';
+                }
+                
+                // Update the UI for the selected card
+                const selectedCard = bankTransferRadio.closest('.form-check').querySelector('.card');
+                if (selectedCard) {
+                    selectedCard.classList.add('selected');
+                }
+            }
+        }
+    }
+    
+    function toggleNewBankAccountForm() {
+        const newBankRadio = document.getElementById('newBankAccount');
+        const newBankForm = document.getElementById('newBankAccountForm');
+        
+        if (newBankRadio && newBankForm) {
+            if (newBankRadio.checked) {
+                newBankForm.classList.remove('d-none');
+            } else {
+                newBankForm.classList.add('d-none');
+            }
+        }
+    }
+    
+    function toggleOtherBankField() {
+        const bankNameSelect = document.getElementById('new_bank_name');
+        const otherBankGroup = document.getElementById('otherBankGroup');
+        
+        if (bankNameSelect && otherBankGroup) {
+            if (bankNameSelect.value === 'other') {
+                otherBankGroup.classList.remove('d-none');
+            } else {
+                otherBankGroup.classList.add('d-none');
+            }
+        }
+    }
+    
+    function initializeQRCodes() {
+        console.log("Initializing QR codes...");
+        createQRContainer('bankTransferQR');
+        updateQRCodes();
+    }
+    
+    function createQRContainer(id) {
+        const container = document.getElementById(id);
+        if (container) {
+            container.innerHTML = '';
+            container.classList.add('qrcode-container');
+        }
+    }
+    
+    function updateQRCodes() {
+        try {
+            console.log("Updating QR codes...");
+            generateBankTransferQR();
+        } catch (error) {
+            console.error("Error generating QR codes:", error);
+        }
+    }
+    
+    function handlePaymentMethodChange(method) {
+        console.log("Payment method changed to:", method);
+        
+        // Hide all payment sections
+        const sections = document.querySelectorAll('.payment-section');
+        sections.forEach(section => section.classList.add('d-none'));
+        
+        // Show selected section
+        const selectedSection = document.getElementById(method + 'Section');
+        if (selectedSection) {
+            selectedSection.classList.remove('d-none');
+            console.log("Showing section:", method + 'Section');
+        } else {
+            console.error("Section not found:", method + 'Section');
+        }
+    }
+    
+    function generateBankTransferQR() {
+        try {
+            const amount = document.getElementById('amount')?.value || 100000;
+            const username = '{{ request.user.username }}';
+            // Make QR content shorter to avoid overflow
+            const qrContent = `TCB|19033868888016|NAP ${username}|${amount}`;
+            
+            generateQR('bankTransferQR', qrContent, "#000000");
+        } catch (error) {
+            console.error("Error in bank transfer QR:", error);
+            showQRError('bankTransferQR');
+        }
+    }
+    
+    function showQRError(containerId) {
+        const container = document.getElementById(containerId);
+        if (container) {
+            container.innerHTML = '<div class="text-danger p-3 text-center">Unable to generate QR code</div>';
+        }
+    }
+    
+    function generateQR(containerId, content, color) {
+        try {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            
+            container.innerHTML = '';
+            
+            if (typeof QRCode === 'undefined') {
+                console.error("QRCode library not loaded");
+                container.innerHTML = '<div class="text-danger p-3">QR code library not loaded</div>';
+                return;
+            }
+            
+            new QRCode(container, {
+                text: content,
+                width: 180,
+                height: 180,
+                colorDark: color || "#000000",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.H
+            });
+            
+            console.log(containerId + ' QR generated successfully');
+        } catch (error) {
+            console.error("Error generating QR for " + containerId, error);
+            container.innerHTML = '<div class="text-danger p-3 text-center">Error: ' + error.message + '</div>';
+        }
+    }
+    
+    function downloadQR(elementId) {
+        const canvas = document.querySelector(`#${elementId} canvas`);
+        if (!canvas) {
+            alert('QR code not available for download');
+            return;
+        }
+        
+        try {
+            const link = document.createElement('a');
+            link.download = `qrcode-payment-${Date.now()}.png`;
+            link.href = canvas.toDataURL('image/png').replace('image/png', 'image/octet-stream');
+            link.click();
+        } catch (error) {
+            console.error("Error downloading QR", error);
+            alert('Unable to download QR code');
+        }
+    }
+    
+    function updateQRCode() {
+        const amount = document.getElementById('amount')?.value || 100000;
+        const qrImg = document.querySelector('.text-center.mb-4 img');
+        const transactionId = "{{ transaction_id }}";
+        const username = "{{ request.user.username }}";
+        
+        if (qrImg) {
+            // Muestra el transaction_id en consola para debuggear
+            console.log("Actualizando QR con transaction_id:", transactionId);
+            
+            // Cập nhật nội dung chuyển khoản
+            const transferContent = `${transactionId} ${amount} ${username}`;
+            const transferContentEl = document.querySelector('.transfer-content');
+            if (transferContentEl) {
+                transferContentEl.textContent = transferContent;
+            }
+            
+            // Cập nhật URL mã QR - đảm bảo dùng số tiền hiện tại
+            const newUrl = `https://img.vietqr.io/image/MB-99924999999-compact2.png?amount=${amount}&addInfo=${encodeURIComponent(transferContent)}`;
+            qrImg.src = newUrl;
+            
+            // Hiệu ứng loading
+            qrImg.style.opacity = '0.5';
+            setTimeout(() => {
+                qrImg.style.opacity = '1';
+            }, 500);
+        }
+    }
+</script>
 {% endblock %}
 
 {% block content %}
@@ -14,25 +642,9 @@
         <ol class="breadcrumb">
             <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">Bảng điều khiển</a></li>
             <li class="breadcrumb-item"><a href="{% url 'wallet' %}">Ví điện tử</a></li>
-            <li class="breadcrumb-item active">Rút tiền</li>
+            <li class="breadcrumb-item active">{% if verify_mode %}Xác nhận nạp tiền{% else %}Nạp tiền{% endif %}</li>
         </ol>
     </nav>
-
-    {% if messages %}
-        {% for message in messages %}
-            <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} rounded-4 mb-4">
-                <div class="d-flex">
-                    <div class="me-3">
-                        <i class="fas fa-{% if message.tags == 'error' %}exclamation-circle{% elif message.tags == 'success' %}check-circle{% else %}info-circle{% endif %} fa-2x"></i>
-                    </div>
-                    <div>
-                        <h6 class="alert-heading">Thông báo</h6>
-                        <p class="mb-0">{{ message|safe }}</p>
-                    </div>
-                </div>
-            </div>
-        {% endfor %}
-    {% endif %}
 
     <div class="row">
         <div class="col-lg-8">
@@ -40,225 +652,422 @@
                 <div class="card-header border-0 p-4">
                     <div class="card-heading">
                         <div class="card-heading-icon">
-                            <i class="fas fa-minus-circle"></i>
+                            <i class="fas fa-{% if verify_mode %}check-circle{% else %}plus-circle{% endif %}"></i>
                         </div>
-                        <h4 class="mb-0">Rút tiền từ tài khoản</h4>
+                        <h4 class="mb-0">{% if verify_mode %}Xác nhận nạp tiền{% else %}Nạp tiền vào tài khoản{% endif %}</h4>
                     </div>
                 </div>
                 <div class="card-body p-4">
-                    <form method="post" id="withdrawForm" action="{% url 'withdraw_money' %}">
-                        {% csrf_token %}
-                        
-                        <div class="alert alert-primary rounded-4 mb-4">
+                    {% if verify_mode %}
+                    <!-- FORM XÁC NHẬN NẠP TIỀN -->
+                    <div class="mb-4">
+                        <div class="alert alert-info rounded-4">
                             <div class="d-flex">
                                 <div class="me-3">
                                     <i class="fas fa-info-circle fa-2x"></i>
                                 </div>
                                 <div>
-                                    <h6 class="alert-heading">Thông tin số dư</h6>
-                                    <p class="mb-0">Số dư khả dụng của bạn: <span class="fw-bold">{{ wallet.balance|default:"0"|dinh_dang_tien }} VNĐ</span></p>
+                                    <h6 class="alert-heading">Hướng dẫn xác nhận nạp tiền</h6>
+                                    <p class="mb-0">Sau khi bạn đã chuyển khoản theo thông tin bên dưới, vui lòng xác nhận giao dịch để hệ thống cập nhật số dư cho bạn.</p>
                                 </div>
                             </div>
                         </div>
-                        
-                        <div class="mb-4">
-                            <label for="amount" class="form-label">Số tiền muốn rút <span class="text-danger">*</span></label>
-                            <div class="input-group">
-                                <input type="number" name="amount" class="form-control form-control-lg" id="amount" 
-                                       min="100000" max="{{ wallet.balance|default:0 }}" step="50000" 
-                                       value="{{ form.amount.value|default:'' }}" required>
-                                <span class="input-group-text">VNĐ</span>
-                            </div>
-                            <div class="form-text">Số tiền tối thiểu: 100,000 VNĐ. Phí rút tiền: 0.5% (tối thiểu 10,000 VNĐ, tối đa 50,000 VNĐ)</div>
-                        </div>
-                        
-                        <h5 class="mb-3">Chọn tài khoản nhận tiền</h5>
-                        
-                        {% if bank_accounts %}
-                        <div class="mb-4">
-                            <div class="row g-3">
-                                {% for account in bank_accounts %}
-                                <div class="col-md-6">
-                                    <div class="form-check bank-account-card">
-                                        <input class="form-check-input" type="radio" name="bank_account" id="bank{{ account.id }}" 
-                                               value="{{ account.id }}" {% if account.is_default and not form.bank_account.value %}checked{% endif %}>
-                                        <label class="form-check-label w-100" for="bank{{ account.id }}">
-                                            <div class="card border shadow-sm rounded-4 p-3">
-                                                <div class="d-flex align-items-center">
-                                                    <div class="bank-logo me-3">
-                                                        <div class="icon-circle" style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background-color: #f8f9fa;">
-                                                            <i class="fas fa-university text-primary"></i>
-                                                        </div>
-                                                    </div>
-                                                    <div>
-                                                        <h6 class="mb-1">{{ account.bank_name }}</h6>
-                                                        <div class="text-monospace small">{{ account.account_number }}</div>
-                                                        <div class="small text-muted">{{ account.account_name }}</div>
+                    </div>
+                    
+                    <!-- QR Code and Transaction Info -->
+                    <div class="text-center mb-4">
+                        <h5 class="mb-3 fw-bold text-primary"><i class="fas fa-qrcode me-2"></i>Quét mã QR để chuyển khoản nhanh</h5>
+                        {% if qr_code_url %}
+                        <div class="card border-0 shadow-sm rounded-4 overflow-hidden qr-code-animation">
+                            <div class="row g-0">
+                                <div class="col-md-5 bg-light d-flex align-items-center justify-content-center p-4">
+                                    <img src="{{ qr_code_url }}" alt="Mã QR chuyển khoản" class="img-fluid rounded shadow-sm" style="max-width: 220px;">
+                                </div>
+                                <div class="col-md-7">
+                                    <div class="card-body py-4">
+                                        <h6 class="card-title fw-bold mb-3 text-primary">Thông tin chuyển khoản</h6>
+                                        <div class="d-flex align-items-center mb-3">
+                                            <img src="https://upanh.vector6.com/images/2020/04/24/013-Logo-PNG-FILE-NganHang-MB-Bank.jpg" alt="MB Bank Logo" class="me-2" style="height: 24px; width: auto;">
+                                            <img src="{% static 'portfolio/img/Rocket_Big.png' %}" alt="Astrolux Logo" style="height: 24px; width: auto;">
+                                        </div>
+                                        <div class="mb-3 border-bottom pb-2">
+                                            <div class="row mb-2">
+                                                <div class="col-5 text-muted">Ngân hàng:</div>
+                                                <div class="col-7">
+                                                    <div class="d-flex align-items-center">
+                                                        <img src="https://upanh.vector6.com/images/2020/04/24/013-Logo-PNG-FILE-NganHang-MB-Bank.jpg" alt="MB Bank Logo" class="me-2" style="height: 20px; width: auto;">
+                                                        <span class="fw-bold">MB Bank</span>
                                                     </div>
                                                 </div>
                                             </div>
-                                        </label>
-                                    </div>
-                                </div>
-                                {% endfor %}
-                                
-                                <div class="col-md-6">
-                                    <div class="form-check bank-account-card">
-                                        <input class="form-check-input" type="radio" name="bank_account" id="newBankAccount" value="">
-                                        <label class="form-check-label w-100" for="newBankAccount">
-                                            <div class="card border border-dashed shadow-sm rounded-4 p-3 text-center">
-                                                <div class="py-2">
-                                                    <i class="fas fa-plus-circle fa-2x text-primary mb-2"></i>
-                                                    <h6 class="mb-0">Thêm tài khoản mới</h6>
+                                            <div class="row mb-2">
+                                                <div class="col-5 text-muted">Chủ TK:</div>
+                                                <div class="col-7">
+                                                    <div class="d-flex align-items-center">
+                                                        <span class="fw-bold">Nguyễn Chí Trung</span>
+                                                        <img src="{% static 'portfolio/img/Rocket_Big.png' %}" alt="Astrolux Logo" class="ms-2" style="height: 20px; width: auto;">
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </label>
+                                            <div class="row mb-2">
+                                                <div class="col-5 text-muted">Số tài khoản:</div>
+                                                <div class="col-7 fw-bold font-monospace">99924999999</div>
+                                            </div>
+                                            <div class="row mb-2">
+                                                <div class="col-5 text-muted">Số tiền:</div>
+                                                <div class="col-7 fw-bold text-success">
+                                                    <span class="amount-display">{{ amount|dinh_dang_tien }}</span> VNĐ
+                                                </div>
+                                            </div>
+                                            <div class="row">
+                                                <div class="col-5 text-muted">Nội dung CK:</div>
+                                                <div class="col-7 fw-bold font-monospace">
+                                                    <span class="small transfer-content">{{ transaction_id }} {{ amount }} {{ request.user.username }}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <p class="small text-muted">
+                                            <i class="fas fa-info-circle me-1"></i>
+                                            Hãy chuyển đúng số tiền và nội dung chuyển khoản để được xác nhận tự động.
+                                        </p>
                                     </div>
                                 </div>
-                            </div>
-                        </div>
-                        
-                        <!-- Form for new bank account -->
-                        <div id="newBankAccountForm" class="d-none mb-4">
-                            <div class="card border border-dashed p-3 mb-3">
-                                <h6 class="mb-3">Thông tin tài khoản mới</h6>
-                                
-                                <div class="mb-3">
-                                    <label for="new_bank_name" class="form-label">Ngân hàng <span class="text-danger">*</span></label>
-                                    <select name="new_bank_name" id="new_bank_name" class="form-select">
-                                        <option value="">-- Chọn ngân hàng --</option>
-                                        <option value="Vietcombank">Vietcombank</option>
-                                        <option value="Techcombank">Techcombank</option>
-                                        <option value="BIDV">BIDV</option>
-                                        <option value="Vietinbank">Vietinbank</option>
-                                        <option value="MB Bank">MB Bank</option>
-                                        <option value="TPBank">TPBank</option>
-                                        <option value="ACB">ACB</option>
-                                        <option value="Sacombank">Sacombank</option>
-                                        <option value="VPBank">VPBank</option>
-                                        <option value="Ngân hàng khác">Ngân hàng khác</option>
-                                    </select>
-                                </div>
-                                
-                                <div class="mb-3 d-none" id="otherBankGroup">
-                                    <label for="new_other_bank_name" class="form-label">Tên ngân hàng khác <span class="text-danger">*</span></label>
-                                    <input type="text" name="new_other_bank_name" id="new_other_bank_name" class="form-control" 
-                                           value="{{ form.new_other_bank_name.value|default:'' }}">
-                                </div>
-                                
-                                <div class="mb-3">
-                                    <label for="new_account_name" class="form-label">Chủ tài khoản <span class="text-danger">*</span></label>
-                                    <input type="text" name="new_account_name" id="new_account_name" class="form-control" 
-                                           value="{{ form.new_account_name.value|default:'' }}">
-                                </div>
-                                
-                                <div class="mb-3">
-                                    <label for="new_account_number" class="form-label">Số tài khoản <span class="text-danger">*</span></label>
-                                    <input type="text" name="new_account_number" id="new_account_number" class="form-control" 
-                                           value="{{ form.new_account_number.value|default:'' }}">
-                                </div>
-                                
-                                <div class="mb-3">
-                                    <label for="new_branch" class="form-label">Chi nhánh</label>
-                                    <input type="text" name="new_branch" id="new_branch" class="form-control" 
-                                           value="{{ form.new_branch.value|default:'' }}">
-                                </div>
-                                
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" name="new_is_default" id="new_is_default" 
-                                           {% if form.new_is_default.value %}checked{% endif %}>
-                                    <label class="form-check-label" for="new_is_default">
-                                        Đặt làm tài khoản mặc định
-                                    </label>
-                                </div>
-                            </div>
-                        </div>
-                        {% else %}
-                        <div class="alert alert-info rounded-4 mb-4">
-                            <div class="d-flex">
-                                <div class="me-3">
-                                    <i class="fas fa-info-circle fa-2x"></i>
-                                </div>
-                                <div>
-                                    <h6 class="alert-heading">Chưa có tài khoản ngân hàng</h6>
-                                    <p class="mb-0">Vui lòng thêm thông tin tài khoản ngân hàng để tiếp tục rút tiền.</p>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- Form for new bank account when no accounts exist -->
-                        <div class="card border border-dashed p-3 mb-4">
-                            <h6 class="mb-3">Thông tin tài khoản mới</h6>
-                            
-                            <div class="mb-3">
-                                <label for="new_bank_name" class="form-label">Ngân hàng <span class="text-danger">*</span></label>
-                                <select name="new_bank_name" id="new_bank_name" class="form-select">
-                                    <option value="">-- Chọn ngân hàng --</option>
-                                    <option value="Vietcombank">Vietcombank</option>
-                                    <option value="Techcombank">Techcombank</option>
-                                    <option value="BIDV">BIDV</option>
-                                    <option value="Vietinbank">Vietinbank</option>
-                                    <option value="MB Bank">MB Bank</option>
-                                    <option value="TPBank">TPBank</option>
-                                    <option value="ACB">ACB</option>
-                                    <option value="Sacombank">Sacombank</option>
-                                    <option value="VPBank">VPBank</option>
-                                    <option value="Ngân hàng khác">Ngân hàng khác</option>
-                                </select>
-                            </div>
-                            
-                            <div class="mb-3 d-none" id="otherBankGroup">
-                                <label for="new_other_bank_name" class="form-label">Tên ngân hàng khác <span class="text-danger">*</span></label>
-                                <input type="text" name="new_other_bank_name" id="new_other_bank_name" class="form-control" 
-                                       value="{{ form.new_other_bank_name.value|default:'' }}">
-                            </div>
-                            
-                            <div class="mb-3">
-                                <label for="new_account_name" class="form-label">Chủ tài khoản <span class="text-danger">*</span></label>
-                                <input type="text" name="new_account_name" id="new_account_name" class="form-control" 
-                                       value="{{ form.new_account_name.value|default:'' }}">
-                            </div>
-                            
-                            <div class="mb-3">
-                                <label for="new_account_number" class="form-label">Số tài khoản <span class="text-danger">*</span></label>
-                                <input type="text" name="new_account_number" id="new_account_number" class="form-control" 
-                                       value="{{ form.new_account_number.value|default:'' }}">
-                            </div>
-                            
-                            <div class="mb-3">
-                                <label for="new_branch" class="form-label">Chi nhánh</label>
-                                <input type="text" name="new_branch" id="new_branch" class="form-control" 
-                                       value="{{ form.new_branch.value|default:'' }}">
-                            </div>
-                            
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="new_is_default" id="new_is_default" checked>
-                                <label class="form-check-label" for="new_is_default">
-                                    Đặt làm tài khoản mặc định
-                                </label>
                             </div>
                         </div>
                         {% endif %}
+                    </div>
+                    
+                    <!-- Verification Form -->
+                    <div class="border rounded-4 p-4 mb-4">
+                        <h5 class="fw-bold mb-3">Xác nhận giao dịch</h5>
+                        <form method="post" action="{% url 'verify_deposit' %}">
+                            {% csrf_token %}
+                            <input type="hidden" name="verify_amount" value="{{ amount }}">
+                            <input type="hidden" name="transaction_id" value="{{ transaction_id }}">
+                            
+                            <div class="mb-3">
+                                <label for="verify_transaction_id" class="form-label">Mã giao dịch <span class="text-danger">*</span></label>
+                                <div class="input-group">
+                                    <input type="text" id="verify_transaction_id" name="verify_transaction_id" class="form-control" 
+                                        value="{{ transaction_id }}" required>
+                                    <button class="btn btn-outline-secondary" type="button" id="copyTransactionId" 
+                                        onclick="navigator.clipboard.writeText('{{ transaction_id }}')">
+                                        <i class="fas fa-copy"></i>
+                                    </button>
+                                </div>
+                                <div class="form-text">Mã giao dịch sẽ được dùng để xác minh giao dịch của bạn</div>
+                            </div>
+                            
+                            <div class="alert alert-warning rounded-4 mb-3">
+                                <div class="d-flex">
+                                    <div class="me-2">
+                                        <i class="fas fa-exclamation-triangle"></i>
+                                    </div>
+                                    <div class="small">
+                                        <strong>Lưu ý:</strong>
+                                        <p class="mb-0">Vui lòng xác nhận sau khi đã chuyển khoản thành công. Hệ thống sẽ kiểm tra thông tin giao dịch của bạn.</p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="d-grid gap-2">
+                                <button type="submit" name="verify_deposit" class="btn btn-primary btn-lg rounded-4">
+                                    <i class="fas fa-check-circle me-2"></i>Xác nhận nạp tiền
+                                </button>
+                                <a href="{% url 'deposit_money' %}" class="btn btn-outline-secondary rounded-4">
+                                    <i class="fas fa-arrow-left me-2"></i>Quay lại
+                                </a>
+                            </div>
+                        </form>
+                    </div>
+                    
+                    {% else %}
+                    <!-- FORM NẠP TIỀN THÔNG THƯỜNG -->
+                    <form method="post" class="needs-validation" novalidate>
+                        {% csrf_token %}
+                        <!-- Agregar campo oculto para transaction_id -->
+                        <input type="hidden" name="transaction_id" value="{{ transaction_id }}">
                         
+                        <!-- Amount field -->
                         <div class="mb-4">
-                            <label for="description" class="form-label">Ghi chú (Không bắt buộc)</label>
-                            <textarea name="description" id="description" class="form-control" rows="3" 
-                                      placeholder="Nhập ghi chú của bạn (nếu có)">{{ form.description.value|default:'' }}</textarea>
+                            <label for="amount" class="form-label fw-bold">
+                                <i class="fas fa-money-bill-wave text-primary me-2"></i>Số tiền muốn nạp 
+                                <span class="text-danger">*</span>
+                            </label>
+                            <div class="input-group input-group-lg amount-input-wrapper">
+                                <input type="number" 
+                                       id="amount" 
+                                       name="amount" 
+                                       class="form-control form-control-lg shadow-sm amount-input" 
+                                       style="border-radius: 12px 0 0 12px; border: 2px solid #ced4da; border-right: none; font-size: 1.5rem; font-weight: 500;"
+                                       placeholder="Nhập số tiền" 
+                                       min="10000" 
+                                       required>
+                                <span class="input-group-text fw-bold" 
+                                      style="background: linear-gradient(135deg, #198754, #20c997); color: white; border-radius: 0 12px 12px 0; border: none; font-size: 1.2rem;">
+                                    VNĐ
+                                </span>
+                            </div>
+                            <div class="form-text mt-2 d-flex align-items-center">
+                                <i class="fas fa-info-circle text-primary me-2"></i>
+                                <span>Số tiền tối thiểu <span class="fw-bold">100,000 VNĐ</span></span>
+                            </div>
+                            <div class="mt-3 p-3 rounded-3" 
+                                 style="background-color: rgba(248, 249, 250, 0.7); border-left: 4px solid #20c997;">
+                                <div class="d-flex align-items-center">
+                                    <div class="me-3 text-success">
+                                        <i class="fas fa-calculator fa-lg"></i>
+                                    </div>
+                                    <div>
+                                        <div class="small text-muted">Số tiền bạn sẽ nhận:</div>
+                                        <div class="fw-bold text-success">
+                                            <span class="amount-display" style="font-size: 1.1rem;">0</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Payment Methods -->
+                        <div class="mb-4">
+                            <label class="form-label mb-3">Phương thức thanh toán <span class="text-danger">*</span></label>
+                            <input type="hidden" id="actual_payment_method" name="payment_method" value="bank_transfer">
+                            
+                            <div class="row g-3">
+                                <div class="col-md-12">
+                                    <div class="form-check payment-method-card">
+                                        <input class="form-check-input payment-radio" type="radio" id="bankTransfer" value="bank_transfer" checked>
+                                        <label class="form-check-label w-100" for="bankTransfer">
+                                            <div class="card payment-option-card border shadow-sm rounded-4 p-3 selected">
+                                                <div class="d-flex align-items-center">
+                                                    <div class="me-3">
+                                                        <i class="fas fa-university"></i>
+                                                    </div>
+                                                    <div>
+                                                        <h6 class="mb-1">Chuyển khoản</h6>
+                                                        <div class="small text-muted">Miễn phí</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Bank Transfer Section -->
+                        <div id="bank_transferSection" class="payment-section mb-4">
+                            <div class="alert alert-info rounded-4 mb-4">
+                                <div class="d-flex">
+                                    <div class="me-3">
+                                        <i class="fas fa-info-circle fa-2x"></i>
+                                    </div>
+                                    <div>
+                                        <h6 class="alert-heading">Hướng dẫn chuyển khoản</h6>
+                                        <p>Vui lòng chuyển khoản đến thông tin tài khoản dưới đây:</p>
+                                        <div class="card bg-light rounded-4 p-3 mb-3 bank-info-card">
+                                            <div class="row">
+                                                <div class="col-md-6 mb-3">
+                                                    <div class="small text-muted mb-1">Ngân hàng:</div>
+                                                    <div class="d-flex align-items-center bank-info-row">
+                                                        <span class="bank-logo-wrapper">
+                                                            <img src="https://upanh.vector6.com/images/2020/04/24/013-Logo-PNG-FILE-NganHang-MB-Bank.jpg" alt="MB Bank Logo" class="me-2" style="height: 28px; width: auto;">
+                                                        </span>
+                                                        <span class="fw-bold">MB Bank</span>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-6 mb-3">
+                                                    <div class="small text-muted mb-1">Chủ tài khoản:</div>
+                                                    <div class="d-flex align-items-center bank-info-row">
+                                                        <span class="fw-bold">CÔNG TY ASTROLUX - Đại diện Nguyễn Chí Trung</span>
+                                                        <span class="bank-logo-wrapper ms-2">
+                                                            <img src="{% static 'portfolio/img/Rocket_Big.png' %}" alt="Astrolux Logo" style="height: 28px; width: auto;">
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-6 mb-3">
+                                                    <div class="small text-muted mb-1">Số tài khoản:</div>
+                                                    <div class="fw-bold font-monospace bank-info-row">99924999999</div>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <div class="small text-muted mb-1">Chi nhánh:</div>
+                                                    <div class="fw-bold bank-info-row">Trà Vinh</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- QR Code for Bank Transfer -->
+                            <div class="text-center mb-4">
+                                <h5 class="mb-3 fw-bold text-primary"><i class="fas fa-qrcode me-2"></i>Quét mã QR để chuyển khoản nhanh</h5>
+                                {% if qr_code_url %}
+                                <div class="card border-0 shadow-sm rounded-4 overflow-hidden qr-code-animation">
+                                    <div class="row g-0">
+                                        <div class="col-md-5 bg-light d-flex align-items-center justify-content-center p-4">
+                                            <img src="{{ qr_code_url }}" alt="Mã QR chuyển khoản" class="img-fluid rounded shadow-sm" style="max-width: 220px;">
+                                        </div>
+                                        <div class="col-md-7">
+                                            <div class="card-body py-4">
+                                                <h6 class="card-title fw-bold mb-3 text-primary">Thông tin chuyển khoản</h6>
+                                                <div class="mb-3 border-bottom pb-2">
+                                                    <div class="row mb-2 bank-info-row">
+                                                        <div class="col-5 text-muted">Ngân hàng:</div>
+                                                        <div class="col-7">
+                                                            <div class="d-flex align-items-center">
+                                                                <span class="bank-logo-wrapper">
+                                                                    <img src="https://upanh.vector6.com/images/2020/04/24/013-Logo-PNG-FILE-NganHang-MB-Bank.jpg" alt="MB Bank Logo" class="me-2" style="height: 20px; width: auto;">
+                                                                </span>
+                                                                <span class="fw-bold">MB Bank</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="row mb-2 bank-info-row">
+                                                        <div class="col-5 text-muted">Chủ TK:</div>
+                                                        <div class="col-7">
+                                                            <div class="d-flex align-items-center">
+                                                                <span class="fw-bold">Nguyễn Chí Trung</span>
+                                                                <span class="bank-logo-wrapper ms-2">
+                                                                    <img src="{% static 'portfolio/img/Rocket_Big.png' %}" alt="Astrolux Logo" style="height: 20px; width: auto;">
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="row mb-2 bank-info-row">
+                                                        <div class="col-5 text-muted">Số tài khoản:</div>
+                                                        <div class="col-7 fw-bold font-monospace">99924999999</div>
+                                                    </div>
+                                                    <div class="row mb-2 bank-info-row">
+                                                        <div class="col-5 text-muted">Số tiền:</div>
+                                                        <div class="col-7 fw-bold text-success">
+                                                            <span class="amount-display">0</span> VNĐ
+                                                        </div>
+                                                    </div>
+                                                    <div class="row bank-info-row">
+                                                        <div class="col-5 text-muted">Nội dung CK:</div>
+                                                        <div class="col-7 fw-bold font-monospace">
+                                                            <span class="small transfer-content">{{ transaction_id }} 0 {{ request.user.username }}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <button type="button" class="btn btn-primary btn-sm rounded-pill px-3" id="reloadQRBtn">
+                                                    <i class="fas fa-sync-alt me-1"></i>Cập nhật mã QR
+                                                </button>
+                                                <div class="mt-2 small text-muted">
+                                                    <i class="fas fa-info-circle me-1"></i>
+                                                    Mã QR tự động cập nhật khi thay đổi số tiền
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% else %}
+                                <div id="bankTransferQR" class="mx-auto mb-2 rounded shadow-sm qr-code-animation" style="background-color: #f8f9fa; width: 220px; height: 220px; display: flex; align-items: center; justify-content: center;"></div>
+                                <button type="button" class="btn btn-outline-primary btn-sm rounded-pill px-3 mt-3" onclick="downloadQR('bankTransferQR')">
+                                    <i class="fas fa-download me-1"></i>Tải mã QR
+                                </button>
+                                {% endif %}
+                            </div>
+                            
+                            <!-- Bank Account Selection -->
+                            <div class="card border-0 shadow-sm rounded-4 mb-4">
+                                <div class="card-header bg-transparent p-4">
+                                    <h5 class="mb-0">
+                                        <i class="fas fa-university me-2"></i> 
+                                        Tài khoản ngân hàng
+                                    </h5>
+                                </div>
+                                <div class="card-body p-4">
+                                    <div class="mb-3">
+                                        <label class="form-label">Chọn tài khoản ngân hàng hoặc thêm tài khoản mới</label>
+                                        
+                                        {% if user_bank_accounts %}
+                                        <div class="row g-3 mb-4">
+                                            {% for account in user_bank_accounts %}
+                                            <div class="col-md-6">
+                                                <div class="form-check">
+                                                    <input class="form-check-input visually-hidden" 
+                                                           type="radio" 
+                                                           name="bank_account" 
+                                                           id="account_{{ account.id }}"
+                                                           value="{{ account.id }}"
+                                                           {% if account.is_default %}checked{% endif %}>
+                                                    <label class="form-check-label w-100" for="account_{{ account.id }}">
+                                                        <div class="card border shadow-sm rounded-4 p-3 {% if account.is_default %}selected{% endif %}">
+                                                            <div class="d-flex align-items-center">
+                                                                <div class="icon-circle me-3">
+                                                                    <i class="fas fa-university"></i>
+                                                                </div>
+                                                                <div>
+                                                                    <h6 class="mb-1">{{ account.bank_name }}{% if account.is_default %} - <span class="badge bg-primary">Mặc định</span>{% endif %}</h6>
+                                                                    <div class="text-muted small">Chủ tài khoản: {{ account.account_name }}</div>
+                                                                    <div class="text-monospace small">Số tài khoản: {{ account.account_number }}</div>
+                                                                    
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </label>
+                                                </div>
+                                            </div>
+                                            {% endfor %}
+                                            
+                                            
+                                        </div>
+                                        {% else %}
+                                        <div class="alert alert-info rounded-4 mb-3">
+                                            <div class="d-flex">
+                                                <div class="me-3">
+                                                    <i class="fas fa-info-circle"></i>
+                                                </div>
+                                                <div>
+                                                    <p class="mb-0">Bạn chưa có tài khoản ngân hàng nào. Vui lòng thêm tài khoản ngân hàng.</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {% endif %}
+                                        
+                                        <!-- Bank account creation card -->
+                                        <div class="col-md-6">
+                                            <div class="form-check bank-account-card">
+                                                <div class="card border border-dashed shadow-sm rounded-4 p-3 text-center" 
+                                                    id="newBankAccountCard" 
+                                                    data-bs-toggle="modal" 
+                                                    data-bs-target="#newBankAccountModal"
+                                                    style="cursor: pointer;">
+                                                    <div class="py-2">
+                                                        <i class="fas fa-plus-circle fa-2x text-primary mb-2"></i>
+                                                        <h6 class="mb-0">Thêm tài khoản mới</h6>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="confirmTransfer" name="confirm_transfer" required checked>
+                            <label class="form-check-label" for="confirmTransfer">
+                                Tôi đã hoàn tất chuyển khoản theo hướng dẫn
+                            </label>
                         </div>
                         
                         <div class="form-check mb-4">
-                            <input class="form-check-input" type="checkbox" id="agree_terms" name="agree_terms" required>
-                            <label class="form-check-label" for="agree_terms">
-                                Tôi đồng ý với <a href="#" class="text-primary">điều khoản rút tiền</a> của ASTROLUX
+                            <input class="form-check-input" type="checkbox" id="agreeTerms" name="agree_terms" required checked>
+                            <label class="form-check-label" for="agreeTerms">
+                                Tôi đồng ý với <a href="#" class="text-primary">điều khoản nạp tiền</a> của ASTROLUX
                             </label>
                         </div>
                         
                         <div class="d-grid">
-                            <button type="submit" class="btn btn-primary btn-lg btn-rounded">
-                                <i class="fas fa-check-circle me-2"></i>Xác nhận rút tiền
+                            <button type="submit" name="confirm_transfer" class="btn btn-primary btn-lg btn-rounded">
+                                <i class="fas fa-check-circle me-2"></i>Tiến hành xác nhận nạp tiền
                             </button>
                         </div>
                     </form>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -276,16 +1085,16 @@
                 <div class="card-body p-4">
                     <div class="mb-4">
                         <div class="d-flex justify-content-between mb-2">
-                            <span class="text-muted">Số tiền rút:</span>
-                            <span class="fw-bold amount-display">0 VNĐ</span>
+                            <span class="text-muted">Số tiền nạp:</span>
+                            <span class="fw-bold amount-display">{% if verify_mode %}{{ amount|dinh_dang_tien }}{% else %}{{ form.amount.value|default:'100000'|dinh_dang_tien }}{% endif %} VNĐ</span>
                         </div>
                         <div class="d-flex justify-content-between mb-2">
-                            <span class="text-muted">Phí rút tiền:</span>
-                            <span class="fee-display fw-bold">0 VNĐ</span>
+                            <span class="text-muted">Phí giao dịch:</span>
+                            <span class="fw-bold text-success">Miễn phí</span>
                         </div>
                         <div class="d-flex justify-content-between mb-0">
-                            <span class="text-muted">Tổng tiền trừ:</span>
-                            <span class="fw-bold total-amount-display">0 VNĐ</span>
+                            <span class="text-muted">Tổng tiền:</span>
+                            <span class="fw-bold amount-display">{% if verify_mode %}{{ amount|dinh_dang_tien }}{% else %}{{ form.amount.value|default:'100000'|dinh_dang_tien }}{% endif %} VNĐ</span>
                         </div>
                     </div>
                     
@@ -296,7 +1105,7 @@
                             </div>
                             <div class="small">
                                 <strong>Thời gian xử lý:</strong>
-                                <p class="mb-0">Yêu cầu rút tiền sẽ được xử lý trong vòng 24 giờ làm việc. Thời gian tiền về tài khoản tùy thuộc vào ngân hàng nhận.</p>
+                                <p class="mb-0">Giao dịch chuyển khoản ngân hàng được xử lý trong vòng 24 giờ làm việc.</p>
                             </div>
                         </div>
                     </div>
@@ -312,98 +1121,148 @@
                             </div>
                         </div>
                     </div>
-                </div>
-            </div>
-            
-            <div class="card border-0 shadow-sm rounded-4" data-aos="fade-up" data-aos-delay="200">
-                <div class="card-body p-4">
-                    <h5 class="mb-3">Câu hỏi thường gặp</h5>
                     
-                    <div class="accordion" id="faqAccordion">
-                        <div class="accordion-item border-0 mb-3">
-                            <h2 class="accordion-header" id="headingOne">
-                                <button class="accordion-button collapsed bg-light rounded-3" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne" aria-expanded="false" aria-controls="collapseOne">
-                                    Bao lâu để nhận được tiền?
-                                </button>
-                            </h2>
-                            <div id="collapseOne" class="accordion-collapse collapse" aria-labelledby="headingOne" data-bs-parent="#faqAccordion">
-                                <div class="accordion-body pt-0">
-                                    <p class="text-muted small mb-0">Thời gian xử lý rút tiền là 24 giờ làm việc. Sau khi được xử lý, thời gian tiền về tài khoản của bạn phụ thuộc vào ngân hàng, thường từ 1-3 ngày làm việc.</p>
-                                </div>
+                    {% if verification_result %}
+                    <div class="alert alert-{% if verification_result.success %}success{% else %}danger{% endif %} rounded-4 mt-4">
+                        <div class="d-flex">
+                            <div class="me-2">
+                                <i class="fas fa-{% if verification_result.success %}check-circle{% else %}exclamation-circle{% endif %}"></i>
                             </div>
-                        </div>
-                        
-                        <div class="accordion-item border-0 mb-3">
-                            <h2 class="accordion-header" id="headingTwo">
-                                <button class="accordion-button collapsed bg-light rounded-3" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTwo" aria-expanded="false" aria-controls="collapseTwo">
-                                    Có phí rút tiền không?
-                                </button>
-                            </h2>
-                            <div id="collapseTwo" class="accordion-collapse collapse" aria-labelledby="headingTwo" data-bs-parent="#faqAccordion">
-                                <div class="accordion-body pt-0">
-                                    <p class="text-muted small mb-0">Có, chúng tôi áp dụng phí rút tiền 0.5% số tiền rút (tối thiểu 10,000 VNĐ, tối đa 50,000 VNĐ). Phí này được sử dụng để chi trả chi phí xử lý giao dịch.</p>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="accordion-item border-0">
-                            <h2 class="accordion-header" id="headingThree">
-                                <button class="accordion-button collapsed bg-light rounded-3" type="button" data-bs-toggle="collapse" data-bs-target="#collapseThree" aria-expanded="false" aria-controls="collapseThree">
-                                    Tôi có thể rút tối đa bao nhiêu tiền?
-                                </button>
-                            </h2>
-                            <div id="collapseThree" class="accordion-collapse collapse" aria-labelledby="headingThree" data-bs-parent="#faqAccordion">
-                                <div class="accordion-body pt-0">
-                                    <p class="text-muted small mb-0">Số tiền rút tối thiểu là 100,000 VNĐ và tối đa bằng số dư khả dụng của bạn. Số tiền rút không được vượt quá số dư hiện có trong tài khoản của bạn.</p>
-                                </div>
+                            <div class="small">
+                                <strong>Kết quả xác nhận:</strong>
+                                <p class="mb-0">{{ verification_result.message }}</p>
                             </div>
                         </div>
                     </div>
+                    {% endif %}
                 </div>
             </div>
         </div>
     </div>
 </div>
 
+<!-- Modal Thêm tài khoản mới -->
+<div class="modal fade" id="newBankAccountModal" tabindex="-1" aria-labelledby="newBankAccountModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0 shadow">
+            <div class="modal-header border-0 bg-primary-light">
+                <h5 class="modal-title" id="newBankAccountModalLabel">
+                    <i class="fas fa-university me-2"></i>Thêm tài khoản ngân hàng mới
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post" id="bankAccountForm" action="{% url 'bank_account_create' %}">
+                {% csrf_token %}
+                <div class="modal-body p-4">
+                    <input type="hidden" name="redirect_url" value="deposit_money">
+                    <div class="mb-3">
+                        <label for="new_bank_name" class="form-label">Ngân hàng <span class="text-danger">*</span></label>
+                        <select name="new_bank_name" id="new_bank_name" class="form-select">
+                            <option value="">-- Chọn ngân hàng --</option>
+                            <option value="Vietcombank">Vietcombank</option>
+                            <option value="Techcombank">Techcombank</option>
+                            <option value="BIDV">BIDV</option>
+                            <option value="Vietinbank">Vietinbank</option>
+                            <option value="MB Bank">MB Bank</option>
+                            <option value="TPBank">TPBank</option>
+                            <option value="ACB">ACB</option>
+                            <option value="Sacombank">Sacombank</option>
+                            <option value="VPBank">VPBank</option>
+                            <option value="other">Ngân hàng khác</option>
+                        </select>
+                    </div>
+                    
+                    <div id="otherBankGroup" class="mb-3 d-none">
+                        <label for="new_other_bank_name" class="form-label">Tên ngân hàng khác <span class="text-danger">*</span></label>
+                        <input type="text" name="new_other_bank_name" id="new_other_bank_name" class="form-control" value="" placeholder="Nhập tên ngân hàng">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="new_account_name" class="form-label">Chủ tài khoản <span class="text-danger">*</span></label>
+                        <input type="text" name="new_account_name" id="new_account_name" class="form-control" value="" placeholder="Nhập tên chủ tài khoản">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="new_account_number" class="form-label">Số tài khoản <span class="text-danger">*</span></label>
+                        <input type="text" name="new_account_number" id="new_account_number" class="form-control" value="" placeholder="Nhập số tài khoản">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="new_branch" class="form-label">Chi nhánh</label>
+                        <input type="text" name="new_branch" id="new_branch" class="form-control" value="" placeholder="Nhập tên chi nhánh">
+                    </div>
+                    
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="new_is_default" id="new_is_default" {% if not user_bank_accounts %}checked{% endif %}>
+                        <label class="form-check-label" for="new_is_default">
+                            Đặt làm tài khoản mặc định
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Hủy bỏ</button>
+                    <button type="submit" class="btn btn-primary rounded-pill px-4" id="saveBankAccount">
+                        <i class="fas fa-save me-1"></i>Tạo tài khoản
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <script>
-// Toggle new bank account form
-document.getElementById('newBankAccount')?.addEventListener('change', function() {
-    const form = document.getElementById('newBankAccountForm');
-    if (this.checked) {
-        form.classList.remove('d-none');
-    } else {
-        form.classList.add('d-none');
-    }
-});
-
-// Hide new bank account form when existing account is selected
-document.querySelectorAll('input[name="bank_account"]:not(#newBankAccount)').forEach(function(radio) {
-    radio.addEventListener('change', function() {
-        if (this.checked) {
-            document.getElementById('newBankAccountForm')?.classList.add('d-none');
-        }
-    });
-});
-
-// Toggle other bank name field
-document.getElementById('new_bank_name')?.addEventListener('change', function() {
+document.addEventListener('DOMContentLoaded', function() {
+    // Xử lý khi chọn ngân hàng khác
+    const bankSelect = document.getElementById('new_bank_name');
     const otherBankGroup = document.getElementById('otherBankGroup');
-    if (this.value === 'Ngân hàng khác') {
-        otherBankGroup.classList.remove('d-none');
-    } else {
-        otherBankGroup.classList.add('d-none');
-    }
-});
-
-// Calculate fee and total
-document.getElementById('amount')?.addEventListener('input', function() {
-    const amount = parseFloat(this.value) || 0;
-    const fee = Math.max(10000, Math.min(50000, amount * 0.005));
-    const total = amount + fee;
     
-    document.querySelector('.amount-display').textContent = amount.toLocaleString('vi-VN') + ' VNĐ';
-    document.querySelector('.fee-display').textContent = fee.toLocaleString('vi-VN') + ' VNĐ';
-    document.querySelector('.total-amount-display').textContent = total.toLocaleString('vi-VN') + ' VNĐ';
+    if (bankSelect) {
+        bankSelect.addEventListener('change', function() {
+            if (this.value === 'other') {
+                otherBankGroup.classList.remove('d-none');
+            } else {
+                otherBankGroup.classList.add('d-none');
+            }
+        });
+    }
+    
+    // Xử lý khi lưu tài khoản ngân hàng mới
+    const saveBankBtn = document.getElementById('saveBankAccount');
+    if (saveBankBtn) {
+        saveBankBtn.addEventListener('click', function() {
+            // Validate form
+            const bankName = document.getElementById('new_bank_name').value;
+            const accountName = document.getElementById('new_account_name').value;
+            const accountNumber = document.getElementById('new_account_number').value;
+            
+            let isValid = true;
+            let errorMessage = '';
+            
+            if (!bankName) {
+                isValid = false;
+                errorMessage = 'Vui lòng chọn ngân hàng';
+            } else if (bankName === 'other' && !document.getElementById('new_other_bank_name').value) {
+                isValid = false;
+                errorMessage = 'Vui lòng nhập tên ngân hàng';
+            } else if (!accountName) {
+                isValid = false;
+                errorMessage = 'Vui lòng nhập tên chủ tài khoản';
+            } else if (!accountNumber) {
+                isValid = false;
+                errorMessage = 'Vui lòng nhập số tài khoản';
+            }
+            
+            if (!isValid) {
+                alert(errorMessage);
+                return;
+            }
+            
+            // If we have the toast notification system
+            if (window.showToast) {
+                window.showToast('Đang xử lý...', 'info');
+            }
+        });
+    }
 });
 </script>
 {% endblock %}
