@@ -8,6 +8,7 @@
 - Nguyễn Trường Vương - tiger.data105@gmail.com
 
 **Link Video:** [https://youtu.be/ThxjXBCELSM](https://youtu.be/ThxjXBCELSM)
+**Link Web Demo:** [https://portfolio-management-ca62a2efb4f8.herokuapp.com/](https://portfolio-management-ca62a2efb4f8.herokuapp.com/)
 
 ### 1.1. Phân chia công việc
 
