@@ -8,7 +8,8 @@
 - Nguyễn Trường Vương - tiger.data105@gmail.com
 
 **Link Video:** [https://youtu.be/ThxjXBCELSM](https://youtu.be/ThxjXBCELSM)
-**Link Web Demo:** [https://portfolio-management-ca62a2efb4f8.herokuapp.com/](https://portfolio-management-ca62a2efb4f8.herokuapp.com/)
+
+**Link Web Deploy ( Tính năng nạp tiền sẽ hết hạn vào 22h 28/02/2025 ):** [https://portfolio-management-ca62a2efb4f8.herokuapp.com/](https://portfolio-management-ca62a2efb4f8.herokuapp.com/)
 
 ### 1.1. Phân chia công việc
 
