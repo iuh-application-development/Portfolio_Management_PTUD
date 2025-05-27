@@ -11,7 +11,7 @@
 
 ### 1.1. Phân chia công việc
 
-Mỗi thành viên đảm nhận full-stack development (Backend + Frontend + Testing) cho một module chức năng cụ thể:
+Mỗi thành viên đảm nhận cả 3 yếu tố (Backend + Frontend + Testing) cho một module chức năng cụ thể:
 
 #### **Module 1: Authentication & Market Data**
 **Thành viên phụ trách**: _[Đào Tiến Sang]_
@@ -855,7 +855,7 @@ docker-compose up --build
 
 * **Functional Testing**: Kiểm tra khả năng đăng nhập, nạp tiền, giao dịch, tạo portfolio.
 * **Performance Testing**: Đánh giá thời gian load trang, truy vấn danh mục khi số lượng tài sản lớn.
-* **Unit Tests**: Có sẵn trong `portfolio/tests.py`
+* **Unit Tests**: Có sẵn trong `/tests/`  ( Chức năng test hiện chưa hoàn thiện )
 
 ## 7. KẾT QUẢ
 
