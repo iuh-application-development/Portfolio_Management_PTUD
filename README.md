@@ -11,6 +11,8 @@
 
 **Link Web Deploy ( Tính năng nạp tiền sẽ hết hạn vào 22h 28/02/2025 ):** [https://portfolio-management-ca62a2efb4f8.herokuapp.com/](https://portfolio-management-ca62a2efb4f8.herokuapp.com/)
 
+**Link Báo Cáo** [https://docs.google.com/document/d/1QuUN7Qq98HKMSRHDgzpDVmYNzolGq6wKj3gHJEN0itA/edit?usp=sharing](https://docs.google.com/document/d/1QuUN7Qq98HKMSRHDgzpDVmYNzolGq6wKj3gHJEN0itA/edit?usp=sharing)
+
 ### 1.1. Phân chia công việc
 
 Mỗi thành viên đảm nhận cả 3 yếu tố (Backend + Frontend + Testing) cho một module chức năng cụ thể:
