@@ -1,0 +1,32 @@
+# Testing dependencies
+pytest==8.3.4
+pytest-django==4.9.0
+pytest-cov==6.0.0
+pytest-xdist==3.5.0
+pytest-mock==3.14.0
+pytest-html==4.1.1
+
+# Performance testing
+pytest-benchmark==4.0.0
+locust==2.32.3
+psutil==6.1.0
+
+# Coverage và reporting
+coverage==7.6.9
+pytest-clarity==1.0.1
+
+# Mocking và fixtures
+factory-boy==3.3.1
+faker==33.1.0
+
+# Database testing
+pytest-factoryboy==2.7.0
+django-test-plus==2.2.4
+
+# Load testing utilities
+gevent==24.11.1
+requests>=2.32.2
+
+# Memory profiling
+memory-profiler==0.61.0
+pympler==0.9 
